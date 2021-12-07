@@ -17,10 +17,8 @@
 package core
 
 import (
-	crand "crypto/rand"
 	"errors"
 	"fmt"
-	"math"
 	"math/big"
 	mrand "math/rand"
 	"sync/atomic"
@@ -82,10 +80,12 @@ func NewHeaderChain(chainDb ethdb.Database, config *params.ChainConfig, engine c
 	numberCache, _ := lru.New(numberCacheLimit)
 
 	// Seed a fast but crypto originating random generator
-	seed, err := crand.Int(crand.Reader, big.NewInt(math.MaxInt64))
-	if err != nil {
-		return nil, err
-	}
+	// CORDS: fix random seed
+	// seed, err := crand.Int(crand.Reader, big.NewInt(math.MaxInt64))
+	// if err != nil {
+	// 	return nil, err
+	// }
+	seed := big.NewInt(0)
 
 	hc := &HeaderChain{
 		config:        config,

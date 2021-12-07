@@ -909,9 +909,9 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 	tstart := time.Now()
 	parent := w.chain.CurrentBlock()
 
-	if parent.Time() >= uint64(timestamp) {
-		timestamp = int64(parent.Time() + 1)
-	}
+	// make timestamp deterministic
+	timestamp = int64(parent.Time() + 15)
+
 	num := parent.Number()
 	header := &types.Header{
 		ParentHash: parent.Hash(),

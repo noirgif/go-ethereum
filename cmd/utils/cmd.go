@@ -503,6 +503,7 @@ func ExportChaindata(fn string, kind string, iter ChainDataIterator, interrupt c
 		defer writer.(*gzip.Writer).Close()
 	}
 	// Write the header
+	// TODO: CORDS?
 	if err := rlp.Encode(writer, &exportHeader{
 		Magic:    exportMagic,
 		Version:  0,

@@ -19,10 +19,8 @@ package ethash
 import (
 	"bytes"
 	"context"
-	crand "crypto/rand"
 	"encoding/json"
 	"errors"
-	"math"
 	"math/big"
 	"math/rand"
 	"net/http"
@@ -70,11 +68,15 @@ func (ethash *Ethash) Seal(chain consensus.ChainHeaderReader, block *types.Block
 	ethash.lock.Lock()
 	threads := ethash.threads
 	if ethash.rand == nil {
-		seed, err := crand.Int(crand.Reader, big.NewInt(math.MaxInt64))
-		if err != nil {
-			ethash.lock.Unlock()
-			return err
-		}
+		// CORDS: fix seed
+		seed := big.NewInt(0)
+		/*
+			seed, err := crand.Int(crand.Reader, big.NewInt(math.MaxInt64))
+			if err != nil {
+				ethash.lock.Unlock()
+				return err
+			}
+		*/
 		ethash.rand = rand.New(rand.NewSource(seed.Int64()))
 	}
 	ethash.lock.Unlock()

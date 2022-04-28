@@ -270,3 +270,10 @@ func (iter *tableIterator) Value() []byte {
 func (iter *tableIterator) Release() {
 	iter.iter.Release()
 }
+
+func (db *table) GetErrorInjection() ethdb.ErrorInjectionConfig {
+	return ethdb.ErrorInjectionConfig{}
+}
+
+func (db *table) SetErrorInjection(config ethdb.ErrorInjectionConfig) {
+}

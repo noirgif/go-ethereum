@@ -33,6 +33,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/noirgif/goleveldb/leveldb/opt"
 	"github.com/prometheus/tsdb/fileutil"
 )
 
@@ -566,7 +567,31 @@ func (n *Node) OpenDatabase(name string, cache, handles int, namespace string, r
 	if n.config.DataDir == "" {
 		db = rawdb.NewMemoryDatabase()
 	} else {
-		db, err = rawdb.NewLevelDBDatabase(n.ResolvePath(name), cache, handles, namespace, readonly)
+		db, err = rawdb.NewInjectedLevelDBDatabase(n.ResolvePath(name), cache, handles, namespace, readonly, func(options *opt.Options) {
+			// Error injection: set error injection options
+			options.EnableTracing = n.config.EnableTracing
+			if n.config.InjectedError == "ReadIOError" {
+				options.InjectedError = opt.ReadIOError
+			} else if n.config.InjectedError == "WriteIOError" {
+				options.InjectedError = opt.WriteIOError
+			} else if n.config.InjectedError == "ReadAllZero" {
+				options.InjectedError = opt.ReadAllZero
+			} else if n.config.InjectedError == "ReadCorruption" {
+				options.InjectedError = opt.ReadCorruption
+			} else {
+				options.InjectedError = opt.NoError
+			}
+			options.InjectedErrorKey = n.config.InjectedErrorKey
+			options.ErrorInjectedTime = n.config.ErrorInjectedTime
+		})
+
+		db.SetErrorInjection(ethdb.ErrorInjectionConfig{
+			EnableTracing:     n.config.EnableTracing,
+			InjectedError:     n.config.InjectedError,
+			InjectedErrorKey:  n.config.InjectedErrorKey,
+			ErrorInjectedTime: n.config.ErrorInjectedTime,
+		})
+
 	}
 
 	if err == nil {
@@ -599,7 +624,23 @@ func (n *Node) OpenDatabaseWithFreezer(name string, cache, handles int, freezer,
 		case !filepath.IsAbs(freezer):
 			freezer = n.ResolvePath(freezer)
 		}
-		db, err = rawdb.NewLevelDBDatabaseWithFreezer(root, cache, handles, freezer, namespace, readonly)
+		db, err = rawdb.NewInjectedLevelDBDatabaseWithFreezer(root, cache, handles, freezer, namespace, readonly, func(options *opt.Options) {
+			// Error injection: set error injection options
+			options.EnableTracing = n.config.EnableTracing
+			if n.config.InjectedError == "ReadIOError" {
+				options.InjectedError = opt.ReadIOError
+			} else if n.config.InjectedError == "WriteIOError" {
+				options.InjectedError = opt.WriteIOError
+			} else if n.config.InjectedError == "ReadAllZero" {
+				options.InjectedError = opt.ReadAllZero
+			} else if n.config.InjectedError == "ReadCorruption" {
+				options.InjectedError = opt.ReadCorruption
+			} else {
+				options.InjectedError = opt.NoError
+			}
+			options.InjectedErrorKey = n.config.InjectedErrorKey
+			options.ErrorInjectedTime = n.config.ErrorInjectedTime
+		})
 	}
 
 	if err == nil {

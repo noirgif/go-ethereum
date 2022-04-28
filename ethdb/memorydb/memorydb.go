@@ -313,3 +313,10 @@ func (it *iterator) Value() []byte {
 func (it *iterator) Release() {
 	it.keys, it.values = nil, nil
 }
+
+func (db *Database) GetErrorInjection() ethdb.ErrorInjectionConfig {
+	return ethdb.ErrorInjectionConfig{}
+}
+
+func (db *Database) SetErrorInjection(config ethdb.ErrorInjectionConfig) {
+}

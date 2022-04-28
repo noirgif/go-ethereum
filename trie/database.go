@@ -89,6 +89,8 @@ type Database struct {
 	preimagesSize common.StorageSize // Storage size of the preimages cache
 
 	lock sync.RWMutex
+
+	errorInjectionConfig ethdb.ErrorInjectionConfig
 }
 
 // rawNode is a simple binary blob used to differentiate between collapsed trie
@@ -308,6 +310,7 @@ func NewDatabaseWithConfig(diskdb ethdb.KeyValueStore, config *Config) *Database
 	if config == nil || config.Preimages { // TODO(karalabe): Flip to default off in the future
 		db.preimages = make(map[common.Hash][]byte)
 	}
+	db.errorInjectionConfig = diskdb.GetErrorInjection()
 	return db
 }
 

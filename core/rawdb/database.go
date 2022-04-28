@@ -29,6 +29,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethdb/leveldb"
 	"github.com/ethereum/go-ethereum/ethdb/memorydb"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/noirgif/goleveldb/leveldb/opt"
 	"github.com/olekukonko/tablewriter"
 )
 
@@ -241,6 +242,32 @@ func NewMemoryDatabaseWithCap(size int) ethdb.Database {
 	return NewDatabase(memorydb.NewWithCap(size))
 }
 
+// NewInjectedLevelDBDatabase creates a persistent key-value database without a freezer
+// moving immutable chain segments into cold storage.
+// inject is a function that toggles error injection
+func NewInjectedLevelDBDatabase(file string, cache int, handles int, namespace string, readonly bool, inject func(options *opt.Options)) (ethdb.Database, error) {
+	db, err := leveldb.NewCustom(file, namespace, func(options *opt.Options) {
+		// Ensure we have some minimal caching and file guarantees
+		if cache < 16 {
+			cache = 16
+		}
+		if handles < 16 {
+			handles = 16
+		}
+		// Set default options
+		options.OpenFilesCacheCapacity = handles
+		options.BlockCacheCapacity = cache / 2 * opt.MiB
+		options.WriteBuffer = cache / 4 * opt.MiB // Two of these are used internally
+		if readonly {
+			options.ReadOnly = true
+		}
+
+		inject(options)
+	})
+
+	return NewDatabase(db), err
+}
+
 // NewLevelDBDatabase creates a persistent key-value database without a freezer
 // moving immutable chain segments into cold storage.
 func NewLevelDBDatabase(file string, cache int, handles int, namespace string, readonly bool) (ethdb.Database, error) {
@@ -249,6 +276,21 @@ func NewLevelDBDatabase(file string, cache int, handles int, namespace string, r
 		return nil, err
 	}
 	return NewDatabase(db), nil
+}
+
+// NewLevelDBDatabaseWithFreezer creates a persistent key-value database with a
+// freezer moving immutable chain segments into cold storage.
+func NewInjectedLevelDBDatabaseWithFreezer(file string, cache int, handles int, freezer string, namespace string, readonly bool, inject func(options *opt.Options)) (ethdb.Database, error) {
+	kvdb, err := NewInjectedLevelDBDatabase(file, cache, handles, namespace, readonly, inject)
+	if err != nil {
+		return nil, err
+	}
+	frdb, err := NewDatabaseWithFreezer(kvdb, freezer, namespace, readonly)
+	if err != nil {
+		kvdb.Close()
+		return nil, err
+	}
+	return frdb, nil
 }
 
 // NewLevelDBDatabaseWithFreezer creates a persistent key-value database with a

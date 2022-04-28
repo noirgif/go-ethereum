@@ -157,6 +157,10 @@ var (
 		utils.MinerNotifyFullFlag,
 		configFileFlag,
 		utils.CatalystFlag,
+		utils.EnableTracingFlag,
+		utils.InjectedErrorFlag,
+		utils.InjectedErrorKeyFlag,
+		utils.ErrorInjectedTimeFlag,
 	}
 
 	rpcFlags = []cli.Flag{

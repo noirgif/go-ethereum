@@ -80,6 +80,8 @@ type Database struct {
 	quitChan chan chan error // Quit channel to stop the metrics collection before closing the database
 
 	log log.Logger // Contextual logger tracking the database path
+
+	errorInjection ethdb.ErrorInjectionConfig
 }
 
 // New returns a wrapped LevelDB object. The namespace is the prefix that the
@@ -518,4 +520,12 @@ func bytesPrefixRange(prefix, start []byte) *util.Range {
 	r := util.BytesPrefix(prefix)
 	r.Start = append(r.Start, start...)
 	return r
+}
+
+func (db *Database) GetErrorInjection() ethdb.ErrorInjectionConfig {
+	return db.errorInjection
+}
+
+func (db *Database) SetErrorInjection(config ethdb.ErrorInjectionConfig) {
+	db.errorInjection = config
 }

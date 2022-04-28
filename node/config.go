@@ -190,6 +190,16 @@ type Config struct {
 
 	// AllowUnprotectedTxs allows non EIP-155 protected transactions to be send over RPC.
 	AllowUnprotectedTxs bool `toml:",omitempty"`
+
+	// Tracing and error injection
+	EnableTracing bool
+	InjectedError string
+	// Error injection: ErrorInjectionKey is the key to enable error injection.
+	InjectedErrorKey string
+
+	// Error injection: ErrorInjectedTime indicates which time
+	// the access is injected with an error.
+	ErrorInjectedTime uint
 }
 
 // IPCEndpoint resolves an IPC endpoint based on a configured value, taking into

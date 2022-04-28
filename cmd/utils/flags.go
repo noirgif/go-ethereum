@@ -19,6 +19,7 @@ package utils
 
 import (
 	"crypto/ecdsa"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -789,6 +790,27 @@ var (
 		Name:  "catalyst",
 		Usage: "Catalyst mode (eth2 integration testing)",
 	}
+
+	// Error injection flags
+	EnableTracingFlag = cli.BoolFlag{
+		Name:  "tracing",
+		Usage: "Enable tracing",
+	}
+
+	InjectedErrorFlag = cli.StringFlag{
+		Name:  "injectederror",
+		Usage: "Injected error (e.g. 'ReadIOError')",
+	}
+
+	InjectedErrorKeyFlag = cli.StringFlag{
+		Name:  "injectederrorkey",
+		Usage: "Specify the key to inject error",
+	}
+
+	ErrorInjectedTimeFlag = cli.UintFlag{
+		Name:  "injectederrortime",
+		Usage: "Which time of the access to inject error",
+	}
 )
 
 // MakeDataDir retrieves the currently requested data directory, terminating
@@ -1206,6 +1228,16 @@ func SetP2PConfig(ctx *cli.Context, cfg *p2p.Config) {
 	}
 }
 
+func setErrorInjection(ctx *cli.Context, cfg *node.Config) {
+	cfg.EnableTracing = ctx.GlobalBool(EnableTracingFlag.Name)
+	cfg.InjectedError = ctx.GlobalString(InjectedErrorFlag.Name)
+	key, err := hex.DecodeString(ctx.GlobalString(InjectedErrorKeyFlag.Name))
+	if err != nil {
+		cfg.InjectedErrorKey = string(key)
+	}
+	cfg.ErrorInjectedTime = ctx.GlobalUint(ErrorInjectedTimeFlag.Name)
+}
+
 // SetNodeConfig applies node-related command line flags to the config.
 func SetNodeConfig(ctx *cli.Context, cfg *node.Config) {
 	SetP2PConfig(ctx, &cfg.P2P)
@@ -1216,6 +1248,7 @@ func SetNodeConfig(ctx *cli.Context, cfg *node.Config) {
 	setNodeUserIdent(ctx, cfg)
 	setDataDir(ctx, cfg)
 	setSmartCard(ctx, cfg)
+	setErrorInjection(ctx, cfg)
 
 	if ctx.GlobalIsSet(ExternalSignerFlag.Name) {
 		cfg.ExternalSigner = ctx.GlobalString(ExternalSignerFlag.Name)

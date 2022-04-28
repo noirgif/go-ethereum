@@ -55,6 +55,23 @@ type Compacter interface {
 	Compact(start []byte, limit []byte) error
 }
 
+type ErrorInjectionConfig struct {
+	// Tracing and error injection
+	EnableTracing bool
+	InjectedError string
+	// Error injection: ErrorInjectionKey is the key to enable error injection.
+	InjectedErrorKey string
+
+	// Error injection: ErrorInjectedTime indicates which time
+	// the access is injected with an error.
+	ErrorInjectedTime uint
+}
+type ErrorInjection interface {
+	// ErrorInjection returns current configuration of error injection.
+	GetErrorInjection() ErrorInjectionConfig
+	SetErrorInjection(ErrorInjectionConfig)
+}
+
 // KeyValueStore contains all the methods required to allow handling different
 // key-value data stores backing the high level database.
 type KeyValueStore interface {
@@ -65,6 +82,7 @@ type KeyValueStore interface {
 	Stater
 	Compacter
 	io.Closer
+	ErrorInjection
 }
 
 // AncientReader contains the methods required to read from immutable ancient data.
@@ -154,4 +172,5 @@ type Database interface {
 	Stater
 	Compacter
 	io.Closer
+	ErrorInjection
 }

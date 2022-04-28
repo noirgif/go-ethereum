@@ -21,6 +21,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 )
@@ -36,10 +37,11 @@ import (
 //
 // SecureTrie is not safe for concurrent use.
 type SecureTrie struct {
-	trie             Trie
-	hashKeyBuf       [common.HashLength]byte
-	secKeyCache      map[string][]byte
-	secKeyCacheOwner *SecureTrie // Pointer to self, replace the key cache on mismatch
+	trie                 Trie
+	hashKeyBuf           [common.HashLength]byte
+	secKeyCache          map[string][]byte
+	secKeyCacheOwner     *SecureTrie // Pointer to self, replace the key cache on mismatch
+	errorInjectionConfig ethdb.ErrorInjectionConfig
 }
 
 // NewSecure creates a trie with an existing root node from a backing database
@@ -61,12 +63,16 @@ func NewSecure(root common.Hash, db *Database) (*SecureTrie, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &SecureTrie{trie: *trie}, nil
+	return &SecureTrie{trie: *trie, errorInjectionConfig: db.errorInjectionConfig}, nil
 }
 
 // Get returns the value for key stored in the trie.
 // The value bytes must not be modified by the caller.
 func (t *SecureTrie) Get(key []byte) []byte {
+	if t.errorInjectionConfig.EnableTracing {
+		log.Info("SecureTrie.Get", "key", fmt.Sprintf("%x", key))
+	}
+
 	res, err := t.TryGet(key)
 	if err != nil {
 		log.Error(fmt.Sprintf("Unhandled trie error: %v", err))
@@ -109,6 +115,10 @@ func (t *SecureTrie) TryUpdateAccount(key []byte, acc *types.StateAccount) error
 // The value bytes must not be modified by the caller while they are
 // stored in the trie.
 func (t *SecureTrie) Update(key, value []byte) {
+	if t.errorInjectionConfig.EnableTracing {
+		log.Info("SecureTrie.Update", "key", fmt.Sprintf("%x", key))
+	}
+
 	if err := t.TryUpdate(key, value); err != nil {
 		log.Error(fmt.Sprintf("Unhandled trie error: %v", err))
 	}
@@ -134,6 +144,10 @@ func (t *SecureTrie) TryUpdate(key, value []byte) error {
 
 // Delete removes any existing value for key from the trie.
 func (t *SecureTrie) Delete(key []byte) {
+	if t.errorInjectionConfig.EnableTracing {
+		log.Info("SecureTrie.Delete", "key", fmt.Sprintf("%x", key))
+	}
+
 	if err := t.TryDelete(key); err != nil {
 		log.Error(fmt.Sprintf("Unhandled trie error: %v", err))
 	}
@@ -162,6 +176,10 @@ func (t *SecureTrie) GetKey(shaKey []byte) []byte {
 // Committing flushes nodes from memory. Subsequent Get calls will load nodes
 // from the database.
 func (t *SecureTrie) Commit(onleaf LeafCallback) (common.Hash, int, error) {
+	if t.errorInjectionConfig.EnableTracing {
+		log.Info("SecureTrie.Commit")
+	}
+
 	// Write all the pre-images to the actual disk database
 	if len(t.getSecKeyCache()) > 0 {
 		if t.trie.db.preimages != nil { // Ugly direct check but avoids the below write lock

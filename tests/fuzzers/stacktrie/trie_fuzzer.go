@@ -70,6 +70,13 @@ func (s *spongeDb) Stat(property string) (string, error)     { panic("implement 
 func (s *spongeDb) Compact(start []byte, limit []byte) error { panic("implement me") }
 func (s *spongeDb) Close() error                             { return nil }
 
+func (db *spongeDb) GetErrorInjection() ethdb.ErrorInjectionConfig {
+	return ethdb.ErrorInjectionConfig{}
+}
+
+func (db *spongeDb) SetErrorInjection(config ethdb.ErrorInjectionConfig) {
+}
+
 func (s *spongeDb) Put(key []byte, value []byte) error {
 	if s.debug {
 		fmt.Printf("db.Put %x : %x\n", key, value)

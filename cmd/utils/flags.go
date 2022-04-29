@@ -1233,6 +1233,8 @@ func setErrorInjection(ctx *cli.Context, cfg *node.Config) {
 	cfg.InjectedError = ctx.GlobalString(InjectedErrorFlag.Name)
 	key, err := hex.DecodeString(ctx.GlobalString(InjectedErrorKeyFlag.Name))
 	if err != nil {
+		log.Warn("No injected error key set! Got ", err)
+	} else {
 		cfg.InjectedErrorKey = string(key)
 	}
 	cfg.ErrorInjectedTime = ctx.GlobalUint(ErrorInjectedTimeFlag.Name)

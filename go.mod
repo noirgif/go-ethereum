@@ -50,7 +50,7 @@ require (
 	github.com/mattn/go-isatty v0.0.12
 	github.com/naoina/go-stringutil v0.1.0 // indirect
 	github.com/naoina/toml v0.1.2-0.20170918210437-9fafd6967416
-	github.com/noirgif/goleveldb v1.0.1-0.20220428221133-7a8282ba57c8 // indirect
+	github.com/noirgif/goleveldb v1.0.1-0.20220429085108-bf7f52720780 // indirect
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/peterh/liner v1.1.1-0.20190123174540-a2c9a5303de7
 	github.com/prometheus/tsdb v0.7.1

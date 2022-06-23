@@ -486,6 +486,13 @@ func (l *loggingDb) Close() error {
 	return l.backend.Close()
 }
 
+func (db *loggingDb) GetErrorInjection() ethdb.ErrorInjectionConfig {
+	return ethdb.ErrorInjectionConfig{}
+}
+
+func (db *loggingDb) SetErrorInjection(config ethdb.ErrorInjectionConfig) {
+}
+
 // makeLargeTestTrie create a sample test trie
 func makeLargeTestTrie() (*Database, *SecureTrie, *loggingDb) {
 	// Create an empty trie

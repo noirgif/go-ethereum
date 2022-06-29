@@ -150,6 +150,13 @@ func (db *Database) Close() error {
 	return nil
 }
 
+func (db *Database) GetErrorInjection() ethdb.ErrorInjectionConfig {
+	return ethdb.ErrorInjectionConfig{}
+}
+
+func (db *Database) SetErrorInjection(config ethdb.ErrorInjectionConfig) {
+}
+
 func dialRPC(endpoint string) (*rpc.Client, error) {
 	if endpoint == "" {
 		return nil, errors.New("endpoint must be specified")

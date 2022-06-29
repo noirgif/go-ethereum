@@ -29,8 +29,8 @@ import (
 	"github.com/ethereum/go-ethereum/ethdb/leveldb"
 	"github.com/ethereum/go-ethereum/ethdb/memorydb"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/noirgif/goleveldb/leveldb/opt"
 	"github.com/olekukonko/tablewriter"
+	"github.com/syndtr/goleveldb/leveldb/opt"
 )
 
 // freezerdb is a database wrapper that enabled freezer data retrievals.

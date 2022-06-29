@@ -153,7 +153,6 @@ var (
 		utils.MinerNotifyFullFlag,
 		utils.IgnoreLegacyReceiptsFlag,
 		configFileFlag,
-		utils.CatalystFlag,
 		utils.EnableTracingFlag,
 		utils.InjectedErrorFlag,
 		utils.InjectedErrorKeyFlag,

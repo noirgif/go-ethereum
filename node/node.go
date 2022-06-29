@@ -37,8 +37,8 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/noirgif/goleveldb/leveldb/opt"
 	"github.com/prometheus/tsdb/fileutil"
+	"github.com/syndtr/goleveldb/leveldb/opt"
 )
 
 // Node is a container on which services can be registered.

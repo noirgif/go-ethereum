@@ -18,6 +18,7 @@ package rawdb
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -31,6 +32,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/golang/snappy"
+	"go.opentelemetry.io/otel"
 )
 
 var (
@@ -874,13 +876,21 @@ func (t *freezerTable) advanceHead() error {
 
 // Sync pushes any pending data from memory out to disk. This is an expensive
 // operation, so use it with care.
-func (t *freezerTable) Sync() error {
+func (t *freezerTable) Sync(ctx context.Context) error {
+	ctx, span := otel.Tracer("freezer").Start(ctx, "Sync.index")
 	if err := t.index.Sync(); err != nil {
 		return err
 	}
+	span.End()
+
+	ctx, span = otel.Tracer("freezer").Start(ctx, "Sync.meta")
 	if err := t.meta.Sync(); err != nil {
 		return err
 	}
+	span.End()
+
+	_, span = otel.Tracer("freezer").Start(ctx, "Sync.head")
+	defer span.End()
 	return t.head.Sync()
 }
 

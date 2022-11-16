@@ -17,6 +17,7 @@
 package rawdb
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -26,6 +27,9 @@ import (
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
+
+	//recordnreplay
+	"go.opentelemetry.io/otel"
 )
 
 const (
@@ -37,6 +41,8 @@ const (
 	// freezerBatchLimit is the maximum number of blocks to freeze in one batch
 	// before doing an fsync and deleting it from the key-value store.
 	freezerBatchLimit = 30000
+
+	tracerName = "chainFreezer"
 )
 
 // chainFreezer is a wrapper of freezer with additional chain freezing feature.
@@ -86,6 +92,10 @@ func (f *chainFreezer) Close() error {
 // This functionality is deliberately broken off from block importing to avoid
 // incurring additional data shuffling delays on block propagation.
 func (f *chainFreezer) freeze(db ethdb.KeyValueStore) {
+	// recordnreplay
+	_, span := otel.Tracer(tracerName).Start(context.Background(), "freeze")
+	defer span.End()
+
 	nfdb := &nofreezedb{KeyValueStore: db}
 
 	var (

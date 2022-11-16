@@ -17,6 +17,7 @@
 package rawdb
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math"
@@ -31,6 +32,9 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/prometheus/tsdb/fileutil"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 )
 
 var (
@@ -232,6 +236,10 @@ func (f *Freezer) ReadAncients(fn func(ethdb.AncientReaderOp) error) (err error)
 
 // ModifyAncients runs the given write operation.
 func (f *Freezer) ModifyAncients(fn func(ethdb.AncientWriteOp) error) (writeSize int64, err error) {
+	// readnreplay
+	ctx, span := otel.Tracer("freezer").Start(context.Background(), "ModifyAncients")
+	defer span.End()
+
 	if f.readonly {
 		return 0, errReadOnly
 	}
@@ -253,13 +261,21 @@ func (f *Freezer) ModifyAncients(fn func(ethdb.AncientWriteOp) error) (writeSize
 	}()
 
 	f.writeBatch.reset()
+	f.writeBatch.ctx = ctx
+
 	if err := fn(f.writeBatch); err != nil {
 		return 0, err
 	}
+
+	_, span_next := otel.Tracer("freezer").Start(ctx, "ModifyAncients.commit")
 	item, writeSize, err := f.writeBatch.commit()
 	if err != nil {
+		span_next.RecordError(err)
+		span_next.SetStatus(codes.Error, err.Error())
+		defer span_next.End()
 		return 0, err
 	}
+	span_next.End()
 	atomic.StoreUint64(&f.frozen, item)
 	return writeSize, nil
 }
@@ -305,12 +321,18 @@ func (f *Freezer) TruncateTail(tail uint64) error {
 }
 
 // Sync flushes all data tables to disk.
+// recordnreplay
 func (f *Freezer) Sync() error {
 	var errs []error
-	for _, table := range f.tables {
-		if err := table.Sync(); err != nil {
+	for tableName, table := range f.tables {
+		ctx, span := otel.Tracer("freezer").Start(context.Background(), "Sync")
+		span.SetAttributes(attribute.String("table.name", tableName))
+
+		if err := table.Sync(ctx); err != nil {
 			errs = append(errs, err)
 		}
+
+		span.End()
 	}
 	if errs != nil {
 		return fmt.Errorf("%v", errs)
@@ -381,6 +403,9 @@ type convertLegacyFn = func([]byte) ([]byte, error)
 // MigrateTable processes the entries in a given table in sequence
 // converting them to a new format if they're of an old format.
 func (f *Freezer) MigrateTable(kind string, convert convertLegacyFn) error {
+	ctx, span := otel.Tracer("freezer").Start(context.Background(), "MigrateTable")
+	defer span.End()
+
 	if f.readonly {
 		return errReadOnly
 	}
@@ -450,7 +475,9 @@ func (f *Freezer) MigrateTable(kind string, convert convertLegacyFn) error {
 		if err != nil {
 			return err
 		}
-		if err := batch.AppendRaw(i, out); err != nil {
+		newCtx, span := otel.Tracer("freezer").Start(ctx, "AppendRaw")
+		defer span.End()
+		if err := batch.AppendRaw(i, out, newCtx); err != nil {
 			return err
 		}
 		return nil

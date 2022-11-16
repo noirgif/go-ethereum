@@ -18,6 +18,7 @@ package rawdb
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"math/big"
@@ -260,12 +261,12 @@ func TestFreezerReadonlyValidate(t *testing.T) {
 	}
 	var item = make([]byte, 1024)
 	aBatch := f.tables["a"].newBatch()
-	require.NoError(t, aBatch.AppendRaw(0, item))
-	require.NoError(t, aBatch.AppendRaw(1, item))
-	require.NoError(t, aBatch.AppendRaw(2, item))
+	require.NoError(t, aBatch.AppendRaw(0, item, context.TODO()))
+	require.NoError(t, aBatch.AppendRaw(1, item, context.TODO()))
+	require.NoError(t, aBatch.AppendRaw(2, item, context.TODO()))
 	require.NoError(t, aBatch.commit())
 	bBatch := f.tables["b"].newBatch()
-	require.NoError(t, bBatch.AppendRaw(0, item))
+	require.NoError(t, bBatch.AppendRaw(0, item, context.TODO()))
 	require.NoError(t, bBatch.commit())
 	if f.tables["a"].items != 3 {
 		t.Fatalf("unexpected number of items in table")

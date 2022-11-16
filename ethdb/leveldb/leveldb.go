@@ -21,6 +21,7 @@
 package leveldb
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -36,6 +37,8 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/filter"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/syndtr/goleveldb/leveldb/util"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
 )
 
 const (
@@ -207,17 +210,21 @@ func (db *Database) Delete(key []byte) error {
 // NewBatch creates a write-only key-value store that buffers changes to its host
 // database until a final write is called.
 func (db *Database) NewBatch() ethdb.Batch {
+	ctx, _ := otel.Tracer("leveldb.Batch").Start(context.Background(), "beginBatch")
 	return &batch{
-		db: db.db,
-		b:  new(leveldb.Batch),
+		db:  db.db,
+		b:   new(leveldb.Batch),
+		ctx: ctx,
 	}
 }
 
 // NewBatchWithSize creates a write-only database batch with pre-allocated buffer.
 func (db *Database) NewBatchWithSize(size int) ethdb.Batch {
+	ctx, _ := otel.Tracer("leveldb.Batch").Start(context.Background(), "beginBatch")
 	return &batch{
-		db: db.db,
-		b:  leveldb.MakeBatch(size),
+		db:  db.db,
+		b:   leveldb.MakeBatch(size),
+		ctx: ctx,
 	}
 }
 
@@ -472,6 +479,8 @@ type batch struct {
 	db   *leveldb.DB
 	b    *leveldb.Batch
 	size int
+
+	ctx context.Context
 }
 
 // Put inserts the given value into the batch for later committing.
@@ -495,13 +504,19 @@ func (b *batch) ValueSize() int {
 
 // Write flushes any accumulated data to disk.
 func (b *batch) Write() error {
-	return b.db.Write(b.b, nil)
+	ctx, newSpan := otel.Tracer("leveldb.Batch").Start(b.ctx, "write")
+	defer newSpan.End()
+	return b.db.Write(b.b, nil, ctx)
 }
 
 // Reset resets the batch for reuse.
 func (b *batch) Reset() {
 	b.b.Reset()
 	b.size = 0
+
+	span := trace.SpanFromContext(b.ctx)
+	span.End()
+	b.ctx, _ = otel.Tracer("leveldb.Batch").Start(context.Background(), "beginBatch")
 }
 
 // Replay replays the batch contents.

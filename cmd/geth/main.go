@@ -18,7 +18,9 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"io"
 	"os"
 	"sort"
 	"strconv"
@@ -45,6 +47,14 @@ import (
 	_ "github.com/ethereum/go-ethereum/eth/tracers/native"
 
 	"github.com/urfave/cli/v2"
+
+	// recordnreplay: opentelemetry
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
+	"go.opentelemetry.io/otel/sdk/resource"
+	"go.opentelemetry.io/otel/sdk/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.12.0"
 )
 
 const (
@@ -336,10 +346,60 @@ func prepare(ctx *cli.Context) {
 	go metrics.CollectProcessMetrics(3 * time.Second)
 }
 
+// newExporter returns a console exporter.
+func newExporter(w io.Writer) (trace.SpanExporter, error) {
+	return stdouttrace.New(
+		stdouttrace.WithWriter(w),
+		// Use human-readable output.
+		stdouttrace.WithPrettyPrint(),
+		// Do not print timestamps for the demo.
+		stdouttrace.WithoutTimestamps(),
+	)
+}
+
+// newResource returns a resource describing this application.
+func newResource() *resource.Resource {
+	r, _ := resource.Merge(
+		resource.Default(),
+		resource.NewWithAttributes(
+			semconv.SchemaURL,
+			semconv.ServiceNameKey.String("fib"),
+			semconv.ServiceVersionKey.String("v0.1.0"),
+			attribute.String("environment", "demo"),
+		),
+	)
+	return r
+}
+
 // geth is the main entry point into the system if no special subcommand is run.
 // It creates a default node based on the command line arguments and runs it in
 // blocking mode, waiting for it to be shut down.
 func geth(ctx *cli.Context) error {
+	// recordnreplay: set up telemetry data
+	// Write telemetry data to a file.
+	f, err := os.Create("traces.txt")
+	if err != nil {
+		log.Warn(err.Error())
+	}
+	defer f.Close()
+
+	exp, err := newExporter(f)
+	if err != nil {
+		log.Warn(err.Error())
+	}
+
+	tp := trace.NewTracerProvider(
+		trace.WithBatcher(exp),
+		trace.WithResource(newResource()),
+	)
+	defer func() {
+		if err := tp.Shutdown(context.Background()); err != nil {
+			log.Warn(err.Error())
+		}
+	}()
+	otel.SetTracerProvider(tp)
+	// end of recordnreplay
+
 	if args := ctx.Args().Slice(); len(args) > 0 {
 		return fmt.Errorf("invalid command: %q", args[0])
 	}

@@ -27,6 +27,8 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
+
+	"encoding/hex"
 )
 
 // This is the maximum amount of data that will be buffered in memory
@@ -145,7 +147,7 @@ func (batch *freezerTableBatch) Append(item uint64, data interface{}, ctx contex
 		encItem = batch.sb.compress(encItem)
 	}
 	span.SetAttributes(attribute.Bool("Snappy", batch.sb != nil))
-	span.SetAttributes(attribute.String("Append", string(encItem)))
+	span.SetAttributes(attribute.String("Append", hex.EncodeToString(encItem)))
 	return batch.appendItem(encItem, ctx)
 }
 
@@ -165,7 +167,7 @@ func (batch *freezerTableBatch) AppendRaw(item uint64, blob []byte, ctx context.
 	}
 
 	span.SetAttributes(attribute.Bool("Snappy", batch.sb != nil))
-	span.SetAttributes(attribute.String("Append", string(encItem)))
+	span.SetAttributes(attribute.String("Append", hex.EncodeToString(encItem)))
 	return batch.appendItem(encItem, ctx)
 }
 

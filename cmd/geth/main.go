@@ -50,7 +50,6 @@ import (
 
 	// recordnreplay: opentelemetry
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
@@ -353,8 +352,6 @@ func newExporter(w io.Writer) (trace.SpanExporter, error) {
 		stdouttrace.WithWriter(w),
 		// Use human-readable output.
 		stdouttrace.WithPrettyPrint(),
-		// Do not print timestamps for the demo.
-		stdouttrace.WithoutTimestamps(),
 	)
 }
 
@@ -364,9 +361,7 @@ func newResource() *resource.Resource {
 		resource.Default(),
 		resource.NewWithAttributes(
 			semconv.SchemaURL,
-			semconv.ServiceNameKey.String("fib"),
 			semconv.ServiceVersionKey.String("v0.1.0"),
-			attribute.String("environment", "demo"),
 		),
 	)
 	return r

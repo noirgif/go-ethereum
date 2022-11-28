@@ -38,7 +38,10 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
+
+	"encoding/hex"
 )
 
 const (
@@ -199,11 +202,20 @@ func (db *Database) Get(key []byte) ([]byte, error) {
 
 // Put inserts the given value into the key-value store.
 func (db *Database) Put(key []byte, value []byte) error {
+	_, span := otel.Tracer("leveldb").Start(context.Background(), "put")
+	defer span.End()
+	span.SetAttributes(attribute.String("key", hex.EncodeToString(key)))
+	span.SetAttributes(attribute.String("value", hex.EncodeToString(value)))
+
 	return db.db.Put(key, value, nil)
 }
 
 // Delete removes the key from the key-value store.
 func (db *Database) Delete(key []byte) error {
+	_, span := otel.Tracer("leveldb").Start(context.Background(), "delete")
+	defer span.End()
+	span.SetAttributes(attribute.String("key", hex.EncodeToString(key)))
+
 	return db.db.Delete(key, nil)
 }
 
@@ -485,6 +497,12 @@ type batch struct {
 
 // Put inserts the given value into the batch for later committing.
 func (b *batch) Put(key, value []byte) error {
+	_, span := otel.Tracer("leveldb.Batch").Start(b.ctx, "put")
+	defer span.End()
+
+	span.SetAttributes(attribute.String("key", hex.EncodeToString(key)))
+	span.SetAttributes(attribute.String("value", hex.EncodeToString(value)))
+
 	b.b.Put(key, value)
 	b.size += len(key) + len(value)
 	return nil
@@ -492,6 +510,11 @@ func (b *batch) Put(key, value []byte) error {
 
 // Delete inserts the a key removal into the batch for later committing.
 func (b *batch) Delete(key []byte) error {
+	_, span := otel.Tracer("leveldb.Batch").Start(b.ctx, "delete")
+	defer span.End()
+
+	span.SetAttributes(attribute.String("key", hex.EncodeToString(key)))
+
 	b.b.Delete(key)
 	b.size += len(key)
 	return nil
@@ -505,7 +528,9 @@ func (b *batch) ValueSize() int {
 // Write flushes any accumulated data to disk.
 func (b *batch) Write() error {
 	ctx, newSpan := otel.Tracer("leveldb.Batch").Start(b.ctx, "write")
+	span := trace.SpanFromContext(b.ctx)
 	defer newSpan.End()
+	defer span.End()
 	return b.db.Write(b.b, nil, ctx)
 }
 

@@ -484,7 +484,7 @@ func (f *Freezer) MigrateTable(kind string, convert convertLegacyFn) error {
 	}); err != nil {
 		return err
 	}
-	if err := batch.commit(); err != nil {
+	if err := batch.commit(ctx); err != nil {
 		return err
 	}
 	log.Info("Replacing old table files with migrated ones", "elapsed", common.PrettyDuration(time.Since(start)))

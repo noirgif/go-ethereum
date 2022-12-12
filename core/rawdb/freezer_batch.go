@@ -89,7 +89,7 @@ func (batch *freezerBatch) commit() (item uint64, writeSize int64, err error) {
 
 	// Commit all table batches.
 	for _, tb := range batch.tables {
-		if err := tb.commit(); err != nil {
+		if err := tb.commit(batch.ctx); err != nil {
 			return 0, 0, err
 		}
 		writeSize += tb.totalBytes
@@ -177,7 +177,7 @@ func (batch *freezerTableBatch) appendItem(data []byte, ctx context.Context) err
 	itemOffset := batch.t.headBytes + int64(len(batch.dataBuffer))
 	if itemOffset+itemSize > int64(batch.t.maxFileSize) {
 		// It doesn't fit, go to next file first.
-		if err := batch.commit(); err != nil {
+		if err := batch.commit(ctx); err != nil {
 			return err
 		}
 		if err := batch.t.advanceHead(); err != nil {
@@ -203,14 +203,13 @@ func (batch *freezerTableBatch) maybeCommit(ctx context.Context) error {
 	if len(batch.dataBuffer) > freezerBatchBufferLimit {
 		_, span := otel.Tracer("freezerTableBatch").Start(ctx, "commit")
 		defer span.End()
-		return batch.commit()
+		return batch.commit(ctx)
 	}
 	return nil
 }
 
 // commit writes the batched items to the backing freezerTable.
-func (batch *freezerTableBatch) commit() error {
-	ctx := context.TODO()
+func (batch *freezerTableBatch) commit(ctx context.Context) error {
 	_, span := otel.Tracer("freezerTableBatch").Start(ctx, "commit")
 	defer span.End()
 

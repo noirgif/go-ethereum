@@ -282,6 +282,11 @@ func (f *Freezer) ModifyAncients(fn func(ethdb.AncientWriteOp) error) (writeSize
 
 // TruncateHead discards any recent data above the provided threshold number.
 func (f *Freezer) TruncateHead(items uint64) error {
+	// readnreplay
+	_, span := otel.Tracer("freezer").Start(context.Background(), "TruncateHead")
+	span.SetAttributes(attribute.String("items", fmt.Sprintf("%d", items)))
+	defer span.End()
+
 	if f.readonly {
 		return errReadOnly
 	}
@@ -305,6 +310,12 @@ func (f *Freezer) TruncateTail(tail uint64) error {
 	if f.readonly {
 		return errReadOnly
 	}
+
+	// readnreplay
+	_, span := otel.Tracer("freezer").Start(context.Background(), "TruncateTail")
+	span.SetAttributes(attribute.String("items", fmt.Sprintf("%d", tail)))
+	defer span.End()
+
 	f.writeLock.Lock()
 	defer f.writeLock.Unlock()
 

@@ -51,9 +51,7 @@ import (
 	// recordnreplay: opentelemetry
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
-	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.12.0"
 )
 
 const (
@@ -385,7 +383,7 @@ func geth(ctx *cli.Context) error {
 
 	tp := trace.NewTracerProvider(
 		trace.WithBatcher(exp),
-		trace.WithResource(newResource()),
+		trace.WithSampler(trace.AlwaysSample()),
 	)
 	defer func() {
 		if err := tp.Shutdown(context.Background()); err != nil {

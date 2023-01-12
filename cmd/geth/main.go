@@ -51,9 +51,7 @@ import (
 	// recordnreplay: opentelemetry
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
-	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.12.0"
 )
 
 const (
@@ -355,18 +353,6 @@ func newExporter(w io.Writer) (trace.SpanExporter, error) {
 	)
 }
 
-// newResource returns a resource describing this application.
-func newResource() *resource.Resource {
-	r, _ := resource.Merge(
-		resource.Default(),
-		resource.NewWithAttributes(
-			semconv.SchemaURL,
-			semconv.ServiceVersionKey.String("v0.1.0"),
-		),
-	)
-	return r
-}
-
 // geth is the main entry point into the system if no special subcommand is ran.
 // It creates a default node based on the command line arguments and runs it in
 // blocking mode, waiting for it to be shut down.
@@ -386,7 +372,7 @@ func geth(ctx *cli.Context) error {
 
 	tp := trace.NewTracerProvider(
 		trace.WithBatcher(exp),
-		trace.WithResource(newResource()),
+		trace.WithSampler(trace.AlwaysSample()),
 	)
 	defer func() {
 		if err := tp.Shutdown(context.Background()); err != nil {

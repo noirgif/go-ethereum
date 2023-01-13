@@ -222,6 +222,7 @@ func (db *Database) Delete(key []byte) error {
 // NewBatch creates a write-only key-value store that buffers changes to its host
 // database until a final write is called.
 func (db *Database) NewBatch() ethdb.Batch {
+	// TODO: Solve memory leak for unfinished spans
 	ctx, _ := otel.Tracer("leveldb.Batch").Start(context.Background(), "beginBatch")
 	return &batch{
 		db:  db.db,
@@ -529,8 +530,8 @@ func (b *batch) ValueSize() int {
 func (b *batch) Write() error {
 	ctx, newSpan := otel.Tracer("leveldb.Batch").Start(b.ctx, "write")
 	span := trace.SpanFromContext(b.ctx)
-	defer newSpan.End()
 	defer span.End()
+	defer newSpan.End()
 	return b.db.Write(b.b, nil, ctx)
 }
 

@@ -264,10 +264,10 @@ func TestFreezerReadonlyValidate(t *testing.T) {
 	require.NoError(t, aBatch.AppendRaw(0, item, context.TODO()))
 	require.NoError(t, aBatch.AppendRaw(1, item, context.TODO()))
 	require.NoError(t, aBatch.AppendRaw(2, item, context.TODO()))
-	require.NoError(t, abatch.commit(context.TODO()))
+	require.NoError(t, aBatch.commit())
 	bBatch := f.tables["b"].newBatch()
 	require.NoError(t, bBatch.AppendRaw(0, item, context.TODO()))
-	require.NoError(t, bbatch.commit(context.TODO()))
+	require.NoError(t, bBatch.commit())
 	if f.tables["a"].items != 3 {
 		t.Fatalf("unexpected number of items in table")
 	}

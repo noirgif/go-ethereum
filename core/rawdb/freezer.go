@@ -261,7 +261,6 @@ func (f *Freezer) ModifyAncients(fn func(ethdb.AncientWriteOp) error) (writeSize
 	}()
 
 	f.writeBatch.reset()
-	f.writeBatch.ctx = ctx
 
 	if err := fn(f.writeBatch); err != nil {
 		return 0, err
@@ -487,6 +486,7 @@ func (f *Freezer) MigrateTable(kind string, convert convertLegacyFn) error {
 			return err
 		}
 		newCtx, span := otel.Tracer("freezer").Start(ctx, "AppendRaw")
+		span.SetAttributes(attribute.String("table", kind))
 		defer span.End()
 		if err := batch.AppendRaw(i, out, newCtx); err != nil {
 			return err
@@ -495,7 +495,7 @@ func (f *Freezer) MigrateTable(kind string, convert convertLegacyFn) error {
 	}); err != nil {
 		return err
 	}
-	if err := batch.commit(ctx); err != nil {
+	if err := batch.commit(); err != nil {
 		return err
 	}
 	log.Info("Replacing old table files with migrated ones", "elapsed", common.PrettyDuration(time.Since(start)))

@@ -24,6 +24,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/golang/snappy"
+	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -37,41 +38,47 @@ const freezerBatchBufferLimit = 2 * 1024 * 1024
 
 // freezerBatch is a write operation of multiple items on a freezer.
 type freezerBatch struct {
-	ctx context.Context
+	// to track the batch in the trace
+	uuid string
 
 	tables map[string]*freezerTableBatch
 }
 
 func newFreezerBatch(f *Freezer) *freezerBatch {
-	batch := &freezerBatch{tables: make(map[string]*freezerTableBatch, len(f.tables))}
+	batch := &freezerBatch{tables: make(map[string]*freezerTableBatch, len(f.tables)), uuid: uuid.New().String()}
 	for kind, table := range f.tables {
 		batch.tables[kind] = table.newBatch()
+		// set the uuid on the batch
+		batch.tables[kind].uuid = batch.uuid
 	}
 	return batch
 }
 
 // Append adds an RLP-encoded item of the given kind.
 func (batch *freezerBatch) Append(kind string, num uint64, item interface{}) error {
-	ctx, span := otel.Tracer("freezerbatch").Start(batch.ctx, "Append")
+	ctx, span := otel.Tracer("freezerbatch").Start(context.Background(), "Append")
 	span.SetAttributes(attribute.String("table", kind))
+	span.SetAttributes(attribute.String("uuid", batch.uuid))
 	defer span.End()
 	return batch.tables[kind].Append(num, item, ctx)
 }
 
 // AppendRaw adds an item of the given kind.
 func (batch *freezerBatch) AppendRaw(kind string, num uint64, item []byte) error {
-	ctx, span := otel.Tracer("freezerbatch").Start(batch.ctx, "AppendRaw")
+	ctx, span := otel.Tracer("freezerbatch").Start(context.Background(), "AppendRaw")
 	span.SetAttributes(attribute.String("table", kind))
+	span.SetAttributes(attribute.String("uuid", batch.uuid))
 	defer span.End()
 	return batch.tables[kind].AppendRaw(num, item, ctx)
 }
 
 // reset initializes the batch.
 func (batch *freezerBatch) reset() {
-	batch.ctx = context.Background()
-
+	// create a new uuid for the new batch
+	batch.uuid = uuid.New().String()
 	for _, tb := range batch.tables {
 		tb.reset()
+		tb.uuid = batch.uuid
 	}
 }
 
@@ -89,7 +96,7 @@ func (batch *freezerBatch) commit() (item uint64, writeSize int64, err error) {
 
 	// Commit all table batches.
 	for _, tb := range batch.tables {
-		if err := tb.commit(batch.ctx); err != nil {
+		if err := tb.commit(); err != nil {
 			return 0, 0, err
 		}
 		writeSize += tb.totalBytes
@@ -107,6 +114,9 @@ type freezerTableBatch struct {
 	indexBuffer []byte
 	curItem     uint64 // expected index of next append
 	totalBytes  int64  // counts written bytes since reset
+
+	// to track the batch in the trace, inherit from FreezerBatch
+	uuid string
 }
 
 // newBatch creates a new batch for the freezer table.
@@ -177,7 +187,7 @@ func (batch *freezerTableBatch) appendItem(data []byte, ctx context.Context) err
 	itemOffset := batch.t.headBytes + int64(len(batch.dataBuffer))
 	if itemOffset+itemSize > int64(batch.t.maxFileSize) {
 		// It doesn't fit, go to next file first.
-		if err := batch.commit(ctx); err != nil {
+		if err := batch.commit(); err != nil {
 			return err
 		}
 		if err := batch.t.advanceHead(); err != nil {
@@ -201,16 +211,15 @@ func (batch *freezerTableBatch) appendItem(data []byte, ctx context.Context) err
 // maybeCommit writes the buffered data if the buffer is full enough.
 func (batch *freezerTableBatch) maybeCommit(ctx context.Context) error {
 	if len(batch.dataBuffer) > freezerBatchBufferLimit {
-		_, span := otel.Tracer("freezerTableBatch").Start(ctx, "commit")
-		defer span.End()
-		return batch.commit(ctx)
+		return batch.commit()
 	}
 	return nil
 }
 
 // commit writes the batched items to the backing freezerTable.
-func (batch *freezerTableBatch) commit(ctx context.Context) error {
-	_, span := otel.Tracer("freezerTableBatch").Start(ctx, "commit")
+func (batch *freezerTableBatch) commit() error {
+	_, span := otel.Tracer("freezerTableBatch").Start(context.Background(), "commit")
+	span.SetAttributes(attribute.String("uuid", batch.uuid))
 	defer span.End()
 
 	// Write data.

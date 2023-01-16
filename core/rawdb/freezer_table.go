@@ -879,19 +879,27 @@ func (t *freezerTable) advanceHead() error {
 func (t *freezerTable) Sync(ctx context.Context) error {
 	ctx, span := otel.Tracer("freezer").Start(ctx, "Sync.index")
 	if err := t.index.Sync(); err != nil {
+		span.RecordError(err)
+		span.End()
 		return err
 	}
 	span.End()
 
 	ctx, span = otel.Tracer("freezer").Start(ctx, "Sync.meta")
 	if err := t.meta.Sync(); err != nil {
+		span.RecordError(err)
+		span.End()
 		return err
 	}
 	span.End()
 
 	_, span = otel.Tracer("freezer").Start(ctx, "Sync.head")
 	defer span.End()
-	return t.head.Sync()
+	err := t.head.Sync()
+	if err != nil {
+		span.RecordError(err)
+	}
+	return err
 }
 
 func (t *freezerTable) dumpIndexStdout(start, stop int64) {

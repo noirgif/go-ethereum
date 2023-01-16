@@ -352,18 +352,6 @@ func newExporter(w io.Writer) (trace.SpanExporter, error) {
 	)
 }
 
-// newResource returns a resource describing this application.
-func newResource() *resource.Resource {
-	r, _ := resource.Merge(
-		resource.Default(),
-		resource.NewWithAttributes(
-			semconv.SchemaURL,
-			semconv.ServiceVersionKey.String("v0.1.0"),
-		),
-	)
-	return r
-}
-
 // geth is the main entry point into the system if no special subcommand is run.
 // It creates a default node based on the command line arguments and runs it in
 // blocking mode, waiting for it to be shut down.

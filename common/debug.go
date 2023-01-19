@@ -22,6 +22,8 @@ import (
 	"runtime"
 	"runtime/debug"
 	"strings"
+
+	"github.com/ethereum/go-ethereum/log"
 )
 
 // Report gives off a warning requesting the user to submit an issue to the github tracker.
@@ -49,4 +51,13 @@ func PrintDeprecationWarning(str string) {
 %s
 
 `, line, emptyLine, str, emptyLine, line)
+}
+
+// logger provides a global logger
+var (
+	logger = log.New()
+)
+
+func Logger() log.Logger {
+	return logger
 }

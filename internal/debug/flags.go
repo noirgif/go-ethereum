@@ -24,6 +24,7 @@ import (
 	"os"
 	"runtime"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/internal/flags"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
@@ -108,6 +109,11 @@ var (
 		Usage:    "Write execution trace to the given file",
 		Category: flags.LoggingCategory,
 	}
+	writeTraceFlag = &cli.StringFlag{
+		Name:     "writetrace",
+		Usage:    "Write traces of database writes to the given file",
+		Category: flags.LoggingCategory,
+	}
 )
 
 // Flags holds all command-line flags required for debugging.
@@ -125,6 +131,7 @@ var Flags = []cli.Flag{
 	blockprofilerateFlag,
 	cpuprofileFlag,
 	traceFlag,
+	writeTraceFlag,
 }
 
 var (
@@ -196,6 +203,15 @@ func Setup(ctx *cli.Context) error {
 		if err := Handler.StartGoTrace(traceFile); err != nil {
 			return err
 		}
+	}
+
+	// recordnreplay
+	if writeTraceFile := ctx.String(writeTraceFlag.Name); writeTraceFile != "" {
+		handler, err := log.FileHandler(writeTraceFile, log.JSONFormat())
+		if err != nil {
+			return err
+		}
+		common.Logger().SetHandler(handler)
 	}
 
 	if cpuFile := ctx.String(cpuprofileFlag.Name); cpuFile != "" {

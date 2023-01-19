@@ -90,7 +90,7 @@ func (f *chainFreezer) Close() error {
 // incurring additional data shuffling delays on block propagation.
 func (f *chainFreezer) freeze(db ethdb.KeyValueStore) {
 	// recordnreplay
-	logger := log.New("module", "chainFreezer", "id", uuid.New().String(), "start", time.Now().UnixNano())
+	logger := common.Logger().New("module", "chainFreezer", "id", uuid.New().String(), "start", time.Now().UnixNano())
 	defer logger.Info("freeze", "end", time.Now().UnixNano())
 
 	var (

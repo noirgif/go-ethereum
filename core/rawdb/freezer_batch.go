@@ -21,6 +21,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -54,14 +55,14 @@ func newFreezerBatch(f *Freezer) *freezerBatch {
 
 // Append adds an RLP-encoded item of the given kind.
 func (batch *freezerBatch) Append(kind string, num uint64, item interface{}) error {
-	logger := log.New("module", "freezerbatch", "table", kind, "uuid", batch.uuid, "start", time.Now().UnixNano())
+	logger := common.Logger().New("module", "freezerbatch", "table", kind, "uuid", batch.uuid, "start", time.Now().UnixNano())
 
 	return batch.tables[kind].Append(num, item, logger)
 }
 
 // AppendRaw adds an item of the given kind.
 func (batch *freezerBatch) AppendRaw(kind string, num uint64, item []byte) error {
-	logger := log.New("module", "freezerbatch", "table", kind, "uuid", batch.uuid, "start", time.Now().UnixNano())
+	logger := common.Logger().New("module", "freezerbatch", "table", kind, "uuid", batch.uuid, "start", time.Now().UnixNano())
 	return batch.tables[kind].AppendRaw(num, item, logger)
 }
 
@@ -207,7 +208,7 @@ func (batch *freezerTableBatch) maybeCommit() error {
 
 // commit writes the batched items to the backing freezerTable.
 func (batch *freezerTableBatch) commit() error {
-	logger := log.New("module", "freezerTableBatch", "uuid", batch.uuid)
+	logger := common.Logger().New("module", "freezerTableBatch", "uuid", batch.uuid)
 	start := time.Now()
 	defer logger.Info("commit", "start", start.String(), "end", time.Now().String())
 

@@ -233,7 +233,7 @@ func (f *Freezer) ReadAncients(fn func(ethdb.AncientReaderOp) error) (err error)
 // ModifyAncients runs the given write operation.
 func (f *Freezer) ModifyAncients(fn func(ethdb.AncientWriteOp) error) (writeSize int64, err error) {
 	// readnreplay
-	logger := log.New("module", "Freezer", "start", time.Now().UnixNano())
+	logger := common.Logger().New("module", "Freezer", "start", time.Now().UnixNano())
 	defer func() { logger.Info("ModifyAncients", "end", time.Now().UnixNano()) }()
 
 	if f.readonly {
@@ -274,7 +274,7 @@ func (f *Freezer) ModifyAncients(fn func(ethdb.AncientWriteOp) error) (writeSize
 // TruncateHead discards any recent data above the provided threshold number.
 func (f *Freezer) TruncateHead(items uint64) error {
 	// readnreplay
-	logger := log.New("module", "Freezer", "start", time.Now().UnixNano(), "items", items)
+	logger := common.Logger().New("module", "Freezer", "start", time.Now().UnixNano(), "items", items)
 	defer logger.Info("TruncateHead", "end", time.Now().UnixNano())
 
 	if f.readonly {
@@ -302,7 +302,7 @@ func (f *Freezer) TruncateTail(tail uint64) error {
 	}
 
 	// readnreplay
-	logger := log.New("module", "Freezer", "start", time.Now().UnixNano(), "tail", tail)
+	logger := common.Logger().New("module", "Freezer", "start", time.Now().UnixNano(), "tail", tail)
 	defer logger.Info("TruncateTail", "end", time.Now().UnixNano())
 
 	f.writeLock.Lock()
@@ -325,7 +325,7 @@ func (f *Freezer) TruncateTail(tail uint64) error {
 func (f *Freezer) Sync() error {
 	var errs []error
 	for tableName, table := range f.tables {
-		logger := log.New("module", "Freezer", "table", tableName, "start", time.Now().UnixNano())
+		logger := common.Logger().New("module", "Freezer", "table", tableName, "start", time.Now().UnixNano())
 
 		if err := table.Sync(logger); err != nil {
 			errs = append(errs, err)
@@ -406,7 +406,7 @@ type convertLegacyFn = func([]byte) ([]byte, error)
 // MigrateTable processes the entries in a given table in sequence
 // converting them to a new format if they're of an old format.
 func (f *Freezer) MigrateTable(kind string, convert convertLegacyFn) error {
-	logger := log.New("module", "Freezer", "table", kind, "start", time.Now().UnixNano())
+	logger := common.Logger().New("module", "Freezer", "table", kind, "start", time.Now().UnixNano())
 	defer logger.Info("MigrateTable", "end", time.Now().UnixNano())
 
 	if f.readonly {

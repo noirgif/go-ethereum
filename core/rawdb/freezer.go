@@ -17,7 +17,6 @@
 package rawdb
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"math"
@@ -32,9 +31,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/prometheus/tsdb/fileutil"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/codes"
 )
 
 var (
@@ -237,8 +233,8 @@ func (f *Freezer) ReadAncients(fn func(ethdb.AncientReaderOp) error) (err error)
 // ModifyAncients runs the given write operation.
 func (f *Freezer) ModifyAncients(fn func(ethdb.AncientWriteOp) error) (writeSize int64, err error) {
 	// readnreplay
-	ctx, span := otel.Tracer("freezer").Start(context.Background(), "ModifyAncients")
-	defer span.End()
+	logger := log.New("module", "Freezer", "start", time.Now().UnixNano())
+	defer func() { logger.Info("ModifyAncients", "end", time.Now().UnixNano()) }()
 
 	if f.readonly {
 		return 0, errReadOnly
@@ -266,15 +262,11 @@ func (f *Freezer) ModifyAncients(fn func(ethdb.AncientWriteOp) error) (writeSize
 		return 0, err
 	}
 
-	_, span_next := otel.Tracer("freezer").Start(ctx, "ModifyAncients.commit")
 	item, writeSize, err := f.writeBatch.commit()
 	if err != nil {
-		span_next.RecordError(err)
-		span_next.SetStatus(codes.Error, err.Error())
-		defer span_next.End()
+		logger.Error(err.Error())
 		return 0, err
 	}
-	span_next.End()
 	atomic.StoreUint64(&f.frozen, item)
 	return writeSize, nil
 }
@@ -282,9 +274,8 @@ func (f *Freezer) ModifyAncients(fn func(ethdb.AncientWriteOp) error) (writeSize
 // TruncateHead discards any recent data above the provided threshold number.
 func (f *Freezer) TruncateHead(items uint64) error {
 	// readnreplay
-	_, span := otel.Tracer("freezer").Start(context.Background(), "TruncateHead")
-	span.SetAttributes(attribute.String("items", fmt.Sprintf("%d", items)))
-	defer span.End()
+	logger := log.New("module", "Freezer", "start", time.Now().UnixNano(), "items", items)
+	defer logger.Info("TruncateHead", "end", time.Now().UnixNano())
 
 	if f.readonly {
 		return errReadOnly
@@ -311,9 +302,8 @@ func (f *Freezer) TruncateTail(tail uint64) error {
 	}
 
 	// readnreplay
-	_, span := otel.Tracer("freezer").Start(context.Background(), "TruncateTail")
-	span.SetAttributes(attribute.String("items", fmt.Sprintf("%d", tail)))
-	defer span.End()
+	logger := log.New("module", "Freezer", "start", time.Now().UnixNano(), "tail", tail)
+	defer logger.Info("TruncateTail", "end", time.Now().UnixNano())
 
 	f.writeLock.Lock()
 	defer f.writeLock.Unlock()
@@ -335,14 +325,12 @@ func (f *Freezer) TruncateTail(tail uint64) error {
 func (f *Freezer) Sync() error {
 	var errs []error
 	for tableName, table := range f.tables {
-		ctx, span := otel.Tracer("freezer").Start(context.Background(), "Sync")
-		span.SetAttributes(attribute.String("table.name", tableName))
+		logger := log.New("module", "Freezer", "table", tableName, "start", time.Now().UnixNano())
 
-		if err := table.Sync(ctx); err != nil {
+		if err := table.Sync(logger); err != nil {
 			errs = append(errs, err)
 		}
-
-		span.End()
+		logger.Info("Sync", "end", time.Now().UnixNano())
 	}
 	if errs != nil {
 		return fmt.Errorf("%v", errs)
@@ -418,8 +406,8 @@ type convertLegacyFn = func([]byte) ([]byte, error)
 // MigrateTable processes the entries in a given table in sequence
 // converting them to a new format if they're of an old format.
 func (f *Freezer) MigrateTable(kind string, convert convertLegacyFn) error {
-	ctx, span := otel.Tracer("freezer").Start(context.Background(), "MigrateTable")
-	defer span.End()
+	logger := log.New("module", "Freezer", "table", kind, "start", time.Now().UnixNano())
+	defer logger.Info("MigrateTable", "end", time.Now().UnixNano())
 
 	if f.readonly {
 		return errReadOnly
@@ -490,10 +478,8 @@ func (f *Freezer) MigrateTable(kind string, convert convertLegacyFn) error {
 		if err != nil {
 			return err
 		}
-		newCtx, span := otel.Tracer("freezer").Start(ctx, "AppendRaw")
-		span.SetAttributes(attribute.String("table", kind))
-		defer span.End()
-		if err := batch.AppendRaw(i, out, newCtx); err != nil {
+
+		if err := batch.AppendRaw(i, out, logger); err != nil {
 			return err
 		}
 		return nil

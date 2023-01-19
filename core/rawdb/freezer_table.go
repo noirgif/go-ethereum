@@ -18,7 +18,6 @@ package rawdb
 
 import (
 	"bytes"
-	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -27,12 +26,12 @@ import (
 	"path/filepath"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/golang/snappy"
-	"go.opentelemetry.io/otel"
 )
 
 var (
@@ -887,31 +886,32 @@ func (t *freezerTable) advanceHead() error {
 
 // Sync pushes any pending data from memory out to disk. This is an expensive
 // operation, so use it with care.
-func (t *freezerTable) Sync(ctx context.Context) error {
+func (t *freezerTable) Sync(logger log.Logger) error {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 	if t.index == nil || t.head == nil || t.meta == nil {
 		return errClosed
 	}
 	var err error
+	var logger_sub log.Logger
 	// Track sync just in case
-	_, span := otel.Tracer("freezer").Start(ctx, "Sync.index")
 	trackError := func(e error) {
 		if e != nil {
-			span.RecordError(e)
+			logger_sub.Error("Failed to sync table", "err", e)
 		}
 		if e != nil && err == nil {
 			err = e
 		}
 	}
+	logger_sub = logger.New("file", "meta", "start", time.Now().UnixNano())
 	trackError(t.index.Sync())
-	span.End()
-	_, span = otel.Tracer("freezer").Start(ctx, "Sync.meta")
+	logger_sub.Info("sync", "end", time.Now().UnixNano())
+	logger_sub = logger.New("file", "meta", "start", time.Now().UnixNano())
 	trackError(t.meta.Sync())
-	span.End()
-	_, span = otel.Tracer("freezer").Start(ctx, "Sync.head")
+	logger_sub.Info("sync", "end", time.Now().UnixNano())
+	logger_sub = logger.New("file", "head", "start", time.Now().UnixNano())
 	trackError(t.head.Sync())
-	span.End()
+	logger_sub.Info("sync", "end", time.Now().UnixNano())
 	return err
 }
 

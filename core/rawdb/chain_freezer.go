@@ -17,7 +17,6 @@
 package rawdb
 
 import (
-	"context"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -27,9 +26,8 @@ import (
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
-
+	"github.com/google/uuid"
 	//recordnreplay
-	"go.opentelemetry.io/otel"
 )
 
 const (
@@ -92,8 +90,8 @@ func (f *chainFreezer) Close() error {
 // incurring additional data shuffling delays on block propagation.
 func (f *chainFreezer) freeze(db ethdb.KeyValueStore) {
 	// recordnreplay
-	_, span := otel.Tracer(tracerName).Start(context.Background(), "freeze")
-	defer span.End()
+	logger := log.New("module", "chainFreezer", "id", uuid.New().String(), "start", time.Now().UnixNano())
+	defer logger.Info("freeze", "end", time.Now().UnixNano())
 
 	var (
 		backoff   bool

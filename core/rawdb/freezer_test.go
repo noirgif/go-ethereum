@@ -18,7 +18,6 @@ package rawdb
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"fmt"
 	"math/big"
@@ -29,6 +28,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/ethdb"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/stretchr/testify/require"
 )
@@ -261,12 +261,14 @@ func TestFreezerReadonlyValidate(t *testing.T) {
 	}
 	var item = make([]byte, 1024)
 	aBatch := f.tables["a"].newBatch()
-	require.NoError(t, aBatch.AppendRaw(0, item, context.TODO()))
-	require.NoError(t, aBatch.AppendRaw(1, item, context.TODO()))
-	require.NoError(t, aBatch.AppendRaw(2, item, context.TODO()))
+	logger := log.New()
+	logger.SetHandler(log.DiscardHandler())
+	require.NoError(t, aBatch.AppendRaw(0, item, logger))
+	require.NoError(t, aBatch.AppendRaw(1, item, logger))
+	require.NoError(t, aBatch.AppendRaw(2, item, logger))
 	require.NoError(t, aBatch.commit())
 	bBatch := f.tables["b"].newBatch()
-	require.NoError(t, bBatch.AppendRaw(0, item, context.TODO()))
+	require.NoError(t, bBatch.AppendRaw(0, item, logger))
 	require.NoError(t, bBatch.commit())
 	if f.tables["a"].items != 3 {
 		t.Fatalf("unexpected number of items in table")

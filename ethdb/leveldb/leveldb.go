@@ -21,7 +21,6 @@
 package leveldb
 
 import (
-	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -38,8 +37,6 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/filter"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/syndtr/goleveldb/leveldb/util"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
 
 	"encoding/hex"
 )
@@ -202,19 +199,16 @@ func (db *Database) Get(key []byte) ([]byte, error) {
 
 // Put inserts the given value into the key-value store.
 func (db *Database) Put(key []byte, value []byte) error {
-	_, span := otel.Tracer("leveldb").Start(context.Background(), "put")
-	defer span.End()
-	span.SetAttributes(attribute.String("key", hex.EncodeToString(key)))
-	span.SetAttributes(attribute.String("value", hex.EncodeToString(value)))
+	logger := log.New("module", "leveldb", "key", hex.EncodeToString(key), "value", hex.EncodeToString(value), "start", time.Now().UnixNano())
+	defer logger.Info("put", "end", time.Now().UnixNano())
 
 	return db.db.Put(key, value, nil)
 }
 
 // Delete removes the key from the key-value store.
 func (db *Database) Delete(key []byte) error {
-	_, span := otel.Tracer("leveldb").Start(context.Background(), "delete")
-	defer span.End()
-	span.SetAttributes(attribute.String("key", hex.EncodeToString(key)))
+	logger := log.New("module", "leveldb", "key", hex.EncodeToString(key), "start", time.Now().UnixNano())
+	defer logger.Info("delete", "end", time.Now().UnixNano())
 
 	return db.db.Delete(key, nil)
 }
@@ -222,23 +216,18 @@ func (db *Database) Delete(key []byte) error {
 // NewBatch creates a write-only key-value store that buffers changes to its host
 // database until a final write is called.
 func (db *Database) NewBatch() ethdb.Batch {
-	// TODO: Solve memory leak for unfinished spans
-	// ctx, _ := otel.Tracer("leveldb.Batch").Start(context.Background(), "beginBatch")
 	return &batch{
-		db: db.db,
-		b:  new(leveldb.Batch),
-		// ctx:  ctx,
+		db:   db.db,
+		b:    new(leveldb.Batch),
 		uuid: uuid.New().String(),
 	}
 }
 
 // NewBatchWithSize creates a write-only database batch with pre-allocated buffer.
 func (db *Database) NewBatchWithSize(size int) ethdb.Batch {
-	// ctx, _ := otel.Tracer("leveldb.Batch").Start(context.Background(), "beginBatch")
 	return &batch{
-		db: db.db,
-		b:  leveldb.MakeBatch(size),
-		// ctx: ctx,
+		db:   db.db,
+		b:    leveldb.MakeBatch(size),
 		uuid: uuid.New().String(),
 	}
 }
@@ -501,12 +490,8 @@ type batch struct {
 
 // Put inserts the given value into the batch for later committing.
 func (b *batch) Put(key, value []byte) error {
-	_, span := otel.Tracer("leveldb.Batch").Start(context.Background(), "put")
-	defer span.End()
-
-	span.SetAttributes(attribute.String("uuid", b.uuid))
-	span.SetAttributes(attribute.String("key", hex.EncodeToString(key)))
-	span.SetAttributes(attribute.String("value", hex.EncodeToString(value)))
+	logger := log.New("module", "leveldb.Batch", "uuid", b.uuid, "key", hex.EncodeToString(key), "value", hex.EncodeToString(value))
+	defer logger.Info("put", "end", time.Now().UnixNano())
 
 	b.b.Put(key, value)
 	b.size += len(key) + len(value)
@@ -515,11 +500,8 @@ func (b *batch) Put(key, value []byte) error {
 
 // Delete inserts the a key removal into the batch for later committing.
 func (b *batch) Delete(key []byte) error {
-	_, span := otel.Tracer("leveldb.Batch").Start(context.Background(), "delete")
-	defer span.End()
-
-	span.SetAttributes(attribute.String("uuid", b.uuid))
-	span.SetAttributes(attribute.String("key", hex.EncodeToString(key)))
+	logger := log.New("module", "leveldb.Batch", "uuid", b.uuid, "key", hex.EncodeToString(key), "start", time.Now().UnixNano())
+	defer logger.Info("delete", "end", time.Now().UnixNano())
 
 	b.b.Delete(key)
 	b.size += len(key)
@@ -533,10 +515,10 @@ func (b *batch) ValueSize() int {
 
 // Write flushes any accumulated data to disk.
 func (b *batch) Write() error {
-	ctx, span := otel.Tracer("leveldb.Batch").Start(context.Background(), "write")
-	span.SetAttributes(attribute.String("uuid", b.uuid))
-	defer span.End()
-	return b.db.Write(b.b, nil, ctx)
+	logger := log.New("module", "leveldb.Batch", "uuid", b.uuid)
+	start := time.Now().UnixNano()
+	defer logger.Info("write", "start", start, "end", time.Now().UnixNano())
+	return b.db.Write(b.b, nil)
 }
 
 // Reset resets the batch for reuse.
@@ -545,9 +527,6 @@ func (b *batch) Reset() {
 	b.size = 0
 
 	b.uuid = uuid.New().String()
-	// span := trace.SpanFromContext(b.ctx)
-	// span.End()
-	// b.ctx, _ = otel.Tracer("leveldb.Batch").Start(context.Background(), "beginBatch")
 }
 
 // Replay replays the batch contents.

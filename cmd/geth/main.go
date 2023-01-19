@@ -18,9 +18,7 @@
 package main
 
 import (
-	"context"
 	"fmt"
-	"io"
 	"os"
 	"sort"
 	"strconv"
@@ -47,11 +45,7 @@ import (
 	_ "github.com/ethereum/go-ethereum/eth/tracers/native"
 
 	"github.com/urfave/cli/v2"
-
 	// recordnreplay: opentelemetry
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
-	"go.opentelemetry.io/otel/sdk/trace"
 )
 
 const (
@@ -343,43 +337,10 @@ func prepare(ctx *cli.Context) {
 	go metrics.CollectProcessMetrics(3 * time.Second)
 }
 
-// newExporter returns a console exporter.
-func newExporter(w io.Writer) (trace.SpanExporter, error) {
-	return stdouttrace.New(
-		stdouttrace.WithWriter(w),
-		// Use human-readable output.
-		stdouttrace.WithPrettyPrint(),
-	)
-}
-
 // geth is the main entry point into the system if no special subcommand is run.
 // It creates a default node based on the command line arguments and runs it in
 // blocking mode, waiting for it to be shut down.
 func geth(ctx *cli.Context) error {
-	// recordnreplay: set up telemetry data
-	// Write telemetry data to a file.
-	f, err := os.Create("traces.txt")
-	if err != nil {
-		log.Warn(err.Error())
-	}
-	defer f.Close()
-
-	exp, err := newExporter(f)
-	if err != nil {
-		log.Warn(err.Error())
-	}
-
-	tp := trace.NewTracerProvider(
-		trace.WithBatcher(exp),
-		trace.WithSampler(trace.AlwaysSample()),
-	)
-	defer func() {
-		if err := tp.Shutdown(context.Background()); err != nil {
-			log.Warn(err.Error())
-		}
-	}()
-	otel.SetTracerProvider(tp)
-	// end of recordnreplay
 
 	if args := ctx.Args().Slice(); len(args) > 0 {
 		return fmt.Errorf("invalid command: %q", args[0])

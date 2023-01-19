@@ -17,17 +17,15 @@
 package rawdb
 
 import (
-	"context"
 	"fmt"
 	"sync/atomic"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/golang/snappy"
 	"github.com/google/uuid"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
 
 	"encoding/hex"
 )
@@ -56,20 +54,15 @@ func newFreezerBatch(f *Freezer) *freezerBatch {
 
 // Append adds an RLP-encoded item of the given kind.
 func (batch *freezerBatch) Append(kind string, num uint64, item interface{}) error {
-	ctx, span := otel.Tracer("freezerbatch").Start(context.Background(), "Append")
-	span.SetAttributes(attribute.String("table", kind))
-	span.SetAttributes(attribute.String("uuid", batch.uuid))
-	defer span.End()
-	return batch.tables[kind].Append(num, item, ctx)
+	logger := log.New("module", "freezerbatch", "table", kind, "uuid", batch.uuid, "start", time.Now().UnixNano())
+
+	return batch.tables[kind].Append(num, item, logger)
 }
 
 // AppendRaw adds an item of the given kind.
 func (batch *freezerBatch) AppendRaw(kind string, num uint64, item []byte) error {
-	ctx, span := otel.Tracer("freezerbatch").Start(context.Background(), "AppendRaw")
-	span.SetAttributes(attribute.String("table", kind))
-	span.SetAttributes(attribute.String("uuid", batch.uuid))
-	defer span.End()
-	return batch.tables[kind].AppendRaw(num, item, ctx)
+	logger := log.New("module", "freezerbatch", "table", kind, "uuid", batch.uuid, "start", time.Now().UnixNano())
+	return batch.tables[kind].AppendRaw(num, item, logger)
 }
 
 // reset initializes the batch.
@@ -140,8 +133,7 @@ func (batch *freezerTableBatch) reset() {
 // Append rlp-encodes and adds data at the end of the freezer table. The item number is a
 // precautionary parameter to ensure data correctness, but the table will reject already
 // existing data.
-func (batch *freezerTableBatch) Append(item uint64, data interface{}, ctx context.Context) error {
-	span := trace.SpanFromContext(ctx)
+func (batch *freezerTableBatch) Append(item uint64, data interface{}, logger log.Logger) error {
 
 	if item != batch.curItem {
 		return fmt.Errorf("%w: have %d want %d", errOutOrderInsertion, item, batch.curItem)
@@ -156,16 +148,14 @@ func (batch *freezerTableBatch) Append(item uint64, data interface{}, ctx contex
 	if batch.sb != nil {
 		encItem = batch.sb.compress(encItem)
 	}
-	span.SetAttributes(attribute.Bool("Snappy", batch.sb != nil))
-	span.SetAttributes(attribute.String("Append", hex.EncodeToString(encItem)))
-	return batch.appendItem(encItem, ctx)
+	defer logger.Info("Append", "Snappy", batch.sb != nil, "data", hex.EncodeToString(encItem), "end", time.Now().UnixNano())
+	return batch.appendItem(encItem)
 }
 
 // AppendRaw injects a binary blob at the end of the freezer table. The item number is a
 // precautionary parameter to ensure data correctness, but the table will reject already
 // existing data.
-func (batch *freezerTableBatch) AppendRaw(item uint64, blob []byte, ctx context.Context) error {
-	span := trace.SpanFromContext(ctx)
+func (batch *freezerTableBatch) AppendRaw(item uint64, blob []byte, logger log.Logger) error {
 
 	if item != batch.curItem {
 		return fmt.Errorf("%w: have %d want %d", errOutOrderInsertion, item, batch.curItem)
@@ -176,12 +166,11 @@ func (batch *freezerTableBatch) AppendRaw(item uint64, blob []byte, ctx context.
 		encItem = batch.sb.compress(blob)
 	}
 
-	span.SetAttributes(attribute.Bool("Snappy", batch.sb != nil))
-	span.SetAttributes(attribute.String("Append", hex.EncodeToString(encItem)))
-	return batch.appendItem(encItem, ctx)
+	defer logger.Info("AppendRaw", "Snappy", batch.sb != nil, "data", hex.EncodeToString(encItem), "end", time.Now().UnixNano())
+	return batch.appendItem(encItem)
 }
 
-func (batch *freezerTableBatch) appendItem(data []byte, ctx context.Context) error {
+func (batch *freezerTableBatch) appendItem(data []byte) error {
 	// Check if item fits into current data file.
 	itemSize := int64(len(data))
 	itemOffset := batch.t.headBytes + int64(len(batch.dataBuffer))
@@ -205,11 +194,11 @@ func (batch *freezerTableBatch) appendItem(data []byte, ctx context.Context) err
 	batch.indexBuffer = entry.append(batch.indexBuffer)
 	batch.curItem++
 
-	return batch.maybeCommit(ctx)
+	return batch.maybeCommit()
 }
 
 // maybeCommit writes the buffered data if the buffer is full enough.
-func (batch *freezerTableBatch) maybeCommit(ctx context.Context) error {
+func (batch *freezerTableBatch) maybeCommit() error {
 	if len(batch.dataBuffer) > freezerBatchBufferLimit {
 		return batch.commit()
 	}
@@ -218,9 +207,9 @@ func (batch *freezerTableBatch) maybeCommit(ctx context.Context) error {
 
 // commit writes the batched items to the backing freezerTable.
 func (batch *freezerTableBatch) commit() error {
-	_, span := otel.Tracer("freezerTableBatch").Start(context.Background(), "commit")
-	span.SetAttributes(attribute.String("uuid", batch.uuid))
-	defer span.End()
+	logger := log.New("module", "freezerTableBatch", "uuid", batch.uuid)
+	start := time.Now()
+	defer logger.Info("commit", "start", start.String(), "end", time.Now().String())
 
 	// Write data.
 	_, err := batch.t.head.Write(batch.dataBuffer)

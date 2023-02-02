@@ -18,7 +18,6 @@ package rawdb
 
 import (
 	"bytes"
-	"context"
 	"encoding/binary"
 	"fmt"
 	"math/rand"
@@ -31,6 +30,7 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/stretchr/testify/require"
 )
@@ -96,12 +96,15 @@ func TestFreezerBasicsClosing(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	logger := log.New()
+	logger.SetHandler(log.DiscardHandler())
+
 	// Write 15 bytes 255 times, results in 85 files.
 	// In-between writes, the table is closed and re-opened.
 	for x := 0; x < 255; x++ {
 		data := getChunk(15, x)
 		batch := f.newBatch()
-		require.NoError(t, batch.AppendRaw(uint64(x), data, context.TODO()))
+		require.NoError(t, batch.AppendRaw(uint64(x), data, logger))
 		require.NoError(t, batch.commit())
 		f.Close()
 
@@ -187,6 +190,9 @@ func TestFreezerRepairDanglingHeadLarge(t *testing.T) {
 	rm, wm, sg := metrics.NewMeter(), metrics.NewMeter(), metrics.NewGauge()
 	fname := fmt.Sprintf("dangling_headtest-%d", rand.Uint64())
 
+	logger := log.New()
+	logger.SetHandler(log.DiscardHandler())
+
 	// Fill a table and close it
 	{
 		f, err := newTable(os.TempDir(), fname, rm, wm, sg, 50, true, false)
@@ -230,7 +236,7 @@ func TestFreezerRepairDanglingHeadLarge(t *testing.T) {
 		// We should now be able to store items again, from item = 1
 		batch := f.newBatch()
 		for x := 1; x < 0xff; x++ {
-			require.NoError(t, batch.AppendRaw(uint64(x), getChunk(15, ^x), context.TODO()))
+			require.NoError(t, batch.AppendRaw(uint64(x), getChunk(15, ^x), logger))
 		}
 		require.NoError(t, batch.commit())
 		f.Close()
@@ -411,6 +417,9 @@ func TestFreezerRepairFirstFile(t *testing.T) {
 	rm, wm, sg := metrics.NewMeter(), metrics.NewMeter(), metrics.NewGauge()
 	fname := fmt.Sprintf("truncationfirst-%d", rand.Uint64())
 
+	logger := log.New()
+	logger.SetHandler(log.DiscardHandler())
+
 	// Fill table
 	{
 		f, err := newTable(os.TempDir(), fname, rm, wm, sg, 50, true, false)
@@ -419,8 +428,8 @@ func TestFreezerRepairFirstFile(t *testing.T) {
 		}
 		// Write 80 bytes, splitting out into two files
 		batch := f.newBatch()
-		require.NoError(t, batch.AppendRaw(0, getChunk(40, 0xFF), context.TODO()))
-		require.NoError(t, batch.AppendRaw(1, getChunk(40, 0xEE), context.TODO()))
+		require.NoError(t, batch.AppendRaw(0, getChunk(40, 0xFF), logger))
+		require.NoError(t, batch.AppendRaw(1, getChunk(40, 0xEE), logger))
 		require.NoError(t, batch.commit())
 
 		// The last item should be there
@@ -457,7 +466,7 @@ func TestFreezerRepairFirstFile(t *testing.T) {
 
 		// Write 40 bytes
 		batch := f.newBatch()
-		require.NoError(t, batch.AppendRaw(1, getChunk(40, 0xDD), context.TODO()))
+		require.NoError(t, batch.AppendRaw(1, getChunk(40, 0xDD), logger))
 		require.NoError(t, batch.commit())
 
 		f.Close()
@@ -478,6 +487,9 @@ func TestFreezerReadAndTruncate(t *testing.T) {
 	t.Parallel()
 	rm, wm, sg := metrics.NewMeter(), metrics.NewMeter(), metrics.NewGauge()
 	fname := fmt.Sprintf("read_truncate-%d", rand.Uint64())
+
+	logger := log.New()
+	logger.SetHandler(log.DiscardHandler())
 
 	// Fill table
 	{
@@ -515,7 +527,7 @@ func TestFreezerReadAndTruncate(t *testing.T) {
 		// Write the data again
 		batch := f.newBatch()
 		for x := 0; x < 30; x++ {
-			require.NoError(t, batch.AppendRaw(uint64(x), getChunk(15, ^x), context.TODO()))
+			require.NoError(t, batch.AppendRaw(uint64(x), getChunk(15, ^x), logger))
 		}
 		require.NoError(t, batch.commit())
 		f.Close()
@@ -527,6 +539,9 @@ func TestFreezerOffset(t *testing.T) {
 	rm, wm, sg := metrics.NewMeter(), metrics.NewMeter(), metrics.NewGauge()
 	fname := fmt.Sprintf("offset-%d", rand.Uint64())
 
+	logger := log.New()
+	logger.SetHandler(log.DiscardHandler())
+
 	// Fill table
 	{
 		f, err := newTable(os.TempDir(), fname, rm, wm, sg, 40, true, false)
@@ -536,14 +551,14 @@ func TestFreezerOffset(t *testing.T) {
 
 		// Write 6 x 20 bytes, splitting out into three files
 		batch := f.newBatch()
-		require.NoError(t, batch.AppendRaw(0, getChunk(20, 0xFF), context.TODO()))
-		require.NoError(t, batch.AppendRaw(1, getChunk(20, 0xEE), context.TODO()))
+		require.NoError(t, batch.AppendRaw(0, getChunk(20, 0xFF), logger))
+		require.NoError(t, batch.AppendRaw(1, getChunk(20, 0xEE), logger))
 
-		require.NoError(t, batch.AppendRaw(2, getChunk(20, 0xdd), context.TODO()))
-		require.NoError(t, batch.AppendRaw(3, getChunk(20, 0xcc), context.TODO()))
+		require.NoError(t, batch.AppendRaw(2, getChunk(20, 0xdd), logger))
+		require.NoError(t, batch.AppendRaw(3, getChunk(20, 0xcc), logger))
 
-		require.NoError(t, batch.AppendRaw(4, getChunk(20, 0xbb), context.TODO()))
-		require.NoError(t, batch.AppendRaw(5, getChunk(20, 0xaa), context.TODO()))
+		require.NoError(t, batch.AppendRaw(4, getChunk(20, 0xbb), logger))
+		require.NoError(t, batch.AppendRaw(5, getChunk(20, 0xaa), logger))
 		require.NoError(t, batch.commit())
 
 		t.Log(f.dumpIndexString(0, 100))
@@ -600,7 +615,7 @@ func TestFreezerOffset(t *testing.T) {
 
 		// It should allow writing item 6.
 		batch := f.newBatch()
-		require.NoError(t, batch.AppendRaw(6, getChunk(20, 0x99), context.TODO()))
+		require.NoError(t, batch.AppendRaw(6, getChunk(20, 0x99), logger))
 		require.NoError(t, batch.commit())
 
 		checkRetrieveError(t, f, map[uint64]error{
@@ -676,15 +691,18 @@ func TestTruncateTail(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	logger := log.New()
+	logger.SetHandler(log.DiscardHandler())
+
 	// Write 7 x 20 bytes, splitting out into four files
 	batch := f.newBatch()
-	require.NoError(t, batch.AppendRaw(0, getChunk(20, 0xFF), context.TODO()))
-	require.NoError(t, batch.AppendRaw(1, getChunk(20, 0xEE), context.TODO()))
-	require.NoError(t, batch.AppendRaw(2, getChunk(20, 0xdd), context.TODO()))
-	require.NoError(t, batch.AppendRaw(3, getChunk(20, 0xcc), context.TODO()))
-	require.NoError(t, batch.AppendRaw(4, getChunk(20, 0xbb), context.TODO()))
-	require.NoError(t, batch.AppendRaw(5, getChunk(20, 0xaa), context.TODO()))
-	require.NoError(t, batch.AppendRaw(6, getChunk(20, 0x11), context.TODO()))
+	require.NoError(t, batch.AppendRaw(0, getChunk(20, 0xFF), logger))
+	require.NoError(t, batch.AppendRaw(1, getChunk(20, 0xEE), logger))
+	require.NoError(t, batch.AppendRaw(2, getChunk(20, 0xdd), logger))
+	require.NoError(t, batch.AppendRaw(3, getChunk(20, 0xcc), logger))
+	require.NoError(t, batch.AppendRaw(4, getChunk(20, 0xbb), logger))
+	require.NoError(t, batch.AppendRaw(5, getChunk(20, 0xaa), logger))
+	require.NoError(t, batch.AppendRaw(6, getChunk(20, 0x11), logger))
 	require.NoError(t, batch.commit())
 
 	// nothing to do, all the items should still be there.
@@ -791,15 +809,18 @@ func TestTruncateHead(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	logger := log.New()
+	logger.SetHandler(log.DiscardHandler())
+
 	// Write 7 x 20 bytes, splitting out into four files
 	batch := f.newBatch()
-	require.NoError(t, batch.AppendRaw(0, getChunk(20, 0xFF), context.TODO()))
-	require.NoError(t, batch.AppendRaw(1, getChunk(20, 0xEE), context.TODO()))
-	require.NoError(t, batch.AppendRaw(2, getChunk(20, 0xdd), context.TODO()))
-	require.NoError(t, batch.AppendRaw(3, getChunk(20, 0xcc), context.TODO()))
-	require.NoError(t, batch.AppendRaw(4, getChunk(20, 0xbb), context.TODO()))
-	require.NoError(t, batch.AppendRaw(5, getChunk(20, 0xaa), context.TODO()))
-	require.NoError(t, batch.AppendRaw(6, getChunk(20, 0x11), context.TODO()))
+	require.NoError(t, batch.AppendRaw(0, getChunk(20, 0xFF), logger))
+	require.NoError(t, batch.AppendRaw(1, getChunk(20, 0xEE), logger))
+	require.NoError(t, batch.AppendRaw(2, getChunk(20, 0xdd), logger))
+	require.NoError(t, batch.AppendRaw(3, getChunk(20, 0xcc), logger))
+	require.NoError(t, batch.AppendRaw(4, getChunk(20, 0xbb), logger))
+	require.NoError(t, batch.AppendRaw(5, getChunk(20, 0xaa), logger))
+	require.NoError(t, batch.AppendRaw(6, getChunk(20, 0x11), logger))
 	require.NoError(t, batch.commit())
 
 	f.truncateTail(4) // Tail = 4
@@ -818,9 +839,9 @@ func TestTruncateHead(t *testing.T) {
 
 	// Append new items
 	batch = f.newBatch()
-	require.NoError(t, batch.AppendRaw(4, getChunk(20, 0xbb), context.TODO()))
-	require.NoError(t, batch.AppendRaw(5, getChunk(20, 0xaa), context.TODO()))
-	require.NoError(t, batch.AppendRaw(6, getChunk(20, 0x11), context.TODO()))
+	require.NoError(t, batch.AppendRaw(4, getChunk(20, 0xbb), logger))
+	require.NoError(t, batch.AppendRaw(5, getChunk(20, 0xaa), logger))
+	require.NoError(t, batch.AppendRaw(6, getChunk(20, 0x11), logger))
 	require.NoError(t, batch.commit())
 
 	checkRetrieve(t, f, map[uint64][]byte{
@@ -881,9 +902,12 @@ func getChunk(size int, b int) []byte {
 func writeChunks(t *testing.T, ft *freezerTable, n int, length int) {
 	t.Helper()
 
+	logger := log.New()
+	logger.SetHandler(log.DiscardHandler())
+
 	batch := ft.newBatch()
 	for i := 0; i < n; i++ {
-		if err := batch.AppendRaw(uint64(i), getChunk(length, i), context.TODO()); err != nil {
+		if err := batch.AppendRaw(uint64(i), getChunk(length, i), logger); err != nil {
 			t.Fatalf("AppendRaw(%d, ...) returned error: %v", i, err)
 		}
 	}
@@ -1077,8 +1101,11 @@ func TestFreezerReadonly(t *testing.T) {
 
 	// Case 5: Now write some data via a batch.
 	// This should fail either during AppendRaw or Commit
+	logger := log.New()
+	logger.SetHandler(log.DiscardHandler())
+
 	batch := f.newBatch()
-	writeErr := batch.AppendRaw(32, make([]byte, 1), context.TODO())
+	writeErr := batch.AppendRaw(32, make([]byte, 1), logger)
 	if writeErr == nil {
 		writeErr = batch.commit()
 	}
@@ -1206,6 +1233,10 @@ func runRandTest(rt randTest) bool {
 	if err != nil {
 		panic("failed to initialize table")
 	}
+
+	logger := log.New()
+	logger.SetHandler(log.DiscardHandler())
+
 	var values [][]byte
 	for i, step := range rt {
 		switch step.op {
@@ -1234,7 +1265,7 @@ func runRandTest(rt randTest) bool {
 		case opAppend:
 			batch := f.newBatch()
 			for i := 0; i < len(step.items); i++ {
-				batch.AppendRaw(step.items[i], step.blobs[i], context.TODO())
+				batch.AppendRaw(step.items[i], step.blobs[i], logger)
 			}
 			batch.commit()
 			values = append(values, step.blobs...)

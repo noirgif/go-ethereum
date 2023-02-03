@@ -200,7 +200,7 @@ func (db *Database) Get(key []byte) ([]byte, error) {
 // Put inserts the given value into the key-value store.
 func (db *Database) Put(key []byte, value []byte) error {
 	logger := common.Logger().New("module", "leveldb", "key", hex.EncodeToString(key), "value", hex.EncodeToString(value), "start", time.Now().UnixNano())
-	defer logger.Info("put", "end", time.Now().UnixNano())
+	defer func() { logger.Info("put", "end", time.Now().UnixNano()) }()
 
 	return db.db.Put(key, value, nil)
 }
@@ -208,7 +208,7 @@ func (db *Database) Put(key []byte, value []byte) error {
 // Delete removes the key from the key-value store.
 func (db *Database) Delete(key []byte) error {
 	logger := common.Logger().New("module", "leveldb", "key", hex.EncodeToString(key), "start", time.Now().UnixNano())
-	defer logger.Info("delete", "end", time.Now().UnixNano())
+	defer func() { logger.Info("delete", "end", time.Now().UnixNano()) }()
 
 	return db.db.Delete(key, nil)
 }
@@ -491,7 +491,7 @@ type batch struct {
 // Put inserts the given value into the batch for later committing.
 func (b *batch) Put(key, value []byte) error {
 	logger := common.Logger().New("module", "leveldb.Batch", "uuid", b.uuid, "key", hex.EncodeToString(key), "value", hex.EncodeToString(value))
-	defer logger.Info("put", "end", time.Now().UnixNano())
+	defer func() { logger.Info("put", "end", time.Now().UnixNano()) }()
 
 	b.b.Put(key, value)
 	b.size += len(key) + len(value)
@@ -501,7 +501,7 @@ func (b *batch) Put(key, value []byte) error {
 // Delete inserts the a key removal into the batch for later committing.
 func (b *batch) Delete(key []byte) error {
 	logger := common.Logger().New("module", "leveldb.Batch", "uuid", b.uuid, "key", hex.EncodeToString(key), "start", time.Now().UnixNano())
-	defer logger.Info("delete", "end", time.Now().UnixNano())
+	defer func() { logger.Info("delete", "end", time.Now().UnixNano()) }()
 
 	b.b.Delete(key)
 	b.size += len(key)
@@ -517,7 +517,7 @@ func (b *batch) ValueSize() int {
 func (b *batch) Write() error {
 	logger := common.Logger().New("module", "leveldb.Batch", "uuid", b.uuid)
 	start := time.Now().UnixNano()
-	defer logger.Info("write", "start", start, "end", time.Now().UnixNano())
+	defer func() { logger.Info("write", "start", start, "end", time.Now().UnixNano()) }()
 	return b.db.Write(b.b, nil)
 }
 

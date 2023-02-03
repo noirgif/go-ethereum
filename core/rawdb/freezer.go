@@ -246,10 +246,12 @@ func (f *Freezer) ModifyAncients(fn func(ethdb.AncientWriteOp) error) (writeSize
 	prevItem := atomic.LoadUint64(&f.frozen)
 	defer func() {
 		if err != nil {
+			logger.Error("ModifyAncients Error Rollback", "prevItem", prevItem)
 			// The write operation has failed. Go back to the previous item position.
 			for name, table := range f.tables {
 				err := table.truncateHead(prevItem)
 				if err != nil {
+					logger.Error("ModifyAncients Rollback Failed")
 					log.Error("Freezer table roll-back failed", "table", name, "index", prevItem, "err", err)
 				}
 			}
@@ -275,7 +277,7 @@ func (f *Freezer) ModifyAncients(fn func(ethdb.AncientWriteOp) error) (writeSize
 func (f *Freezer) TruncateHead(items uint64) error {
 	// readnreplay
 	logger := common.Logger().New("module", "Freezer", "start", time.Now().UnixNano(), "items", items)
-	defer logger.Info("TruncateHead", "end", time.Now().UnixNano())
+	defer func() { logger.Info("TruncateHead", "end", time.Now().UnixNano()) }()
 
 	if f.readonly {
 		return errReadOnly
@@ -303,7 +305,7 @@ func (f *Freezer) TruncateTail(tail uint64) error {
 
 	// readnreplay
 	logger := common.Logger().New("module", "Freezer", "start", time.Now().UnixNano(), "tail", tail)
-	defer logger.Info("TruncateTail", "end", time.Now().UnixNano())
+	defer func() { logger.Info("TruncateTail", "end", time.Now().UnixNano()) }()
 
 	f.writeLock.Lock()
 	defer f.writeLock.Unlock()
@@ -376,6 +378,7 @@ func (f *Freezer) repair() error {
 		head = uint64(math.MaxUint64)
 		tail = uint64(0)
 	)
+	logger := common.Logger().New("module", "Freezer", "start", time.Now().UnixNano())
 	for _, table := range f.tables {
 		items := atomic.LoadUint64(&table.items)
 		if head > items {
@@ -387,6 +390,9 @@ func (f *Freezer) repair() error {
 		}
 	}
 	for _, table := range f.tables {
+		logger.Info("Truncating", "table", table.name, "head", atomic.LoadUint64(&table.items)-head, "tail", atomic.LoadUint64(&table.itemHidden)-tail)
+	}
+	for _, table := range f.tables {
 		if err := table.truncateHead(head); err != nil {
 			return err
 		}
@@ -396,6 +402,7 @@ func (f *Freezer) repair() error {
 	}
 	atomic.StoreUint64(&f.frozen, head)
 	atomic.StoreUint64(&f.tail, tail)
+	logger.Info("Repair by truncating done", "head", head, "tail", tail, "end", time.Now().UnixNano())
 	return nil
 }
 
@@ -407,7 +414,7 @@ type convertLegacyFn = func([]byte) ([]byte, error)
 // converting them to a new format if they're of an old format.
 func (f *Freezer) MigrateTable(kind string, convert convertLegacyFn) error {
 	logger := common.Logger().New("module", "Freezer", "table", kind, "start", time.Now().UnixNano())
-	defer logger.Info("MigrateTable", "end", time.Now().UnixNano())
+	defer func() { logger.Info("MigrateTable", "end", time.Now().UnixNano()) }()
 
 	if f.readonly {
 		return errReadOnly

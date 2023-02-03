@@ -149,7 +149,9 @@ func (batch *freezerTableBatch) Append(item uint64, data interface{}, logger log
 	if batch.sb != nil {
 		encItem = batch.sb.compress(encItem)
 	}
-	defer logger.Info("Append", "Snappy", batch.sb != nil, "data", hex.EncodeToString(encItem), "end", time.Now().UnixNano())
+	defer func() {
+		logger.Info("Append", "Snappy", batch.sb != nil, "data", hex.EncodeToString(encItem), "end", time.Now().UnixNano())
+	}()
 	return batch.appendItem(encItem)
 }
 
@@ -166,8 +168,10 @@ func (batch *freezerTableBatch) AppendRaw(item uint64, blob []byte, logger log.L
 	if batch.sb != nil {
 		encItem = batch.sb.compress(blob)
 	}
-
-	defer logger.Info("AppendRaw", "Snappy", batch.sb != nil, "data", hex.EncodeToString(encItem), "end", time.Now().UnixNano())
+	// TODO: make it inside a function, so that time.Now() is not called immediately
+	defer func() {
+		logger.Info("AppendRaw", "Snappy", batch.sb != nil, "data", hex.EncodeToString(encItem), "end", time.Now().UnixNano())
+	}()
 	return batch.appendItem(encItem)
 }
 
@@ -210,7 +214,7 @@ func (batch *freezerTableBatch) maybeCommit() error {
 func (batch *freezerTableBatch) commit() error {
 	logger := common.Logger().New("module", "freezerTableBatch", "uuid", batch.uuid)
 	start := time.Now()
-	defer logger.Info("commit", "start", start.String(), "end", time.Now().String())
+	defer func() { logger.Info("commit", "start", start.UnixNano(), "end", time.Now().UnixNano()) }()
 
 	// Write data.
 	_, err := batch.t.head.Write(batch.dataBuffer)

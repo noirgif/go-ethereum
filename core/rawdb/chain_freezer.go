@@ -39,8 +39,6 @@ const (
 	// freezerBatchLimit is the maximum number of blocks to freeze in one batch
 	// before doing an fsync and deleting it from the key-value store.
 	freezerBatchLimit = 30000
-
-	tracerName = "chainFreezer"
 )
 
 // chainFreezer is a wrapper of freezer with additional chain freezing feature.

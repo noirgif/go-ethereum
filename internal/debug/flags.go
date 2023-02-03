@@ -212,6 +212,8 @@ func Setup(ctx *cli.Context) error {
 			return err
 		}
 		common.Logger().SetHandler(handler)
+	} else {
+		common.Logger().SetHandler(log.DiscardHandler())
 	}
 
 	if cpuFile := ctx.String(cpuprofileFlag.Name); cpuFile != "" {

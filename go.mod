@@ -2,7 +2,7 @@ module github.com/ethereum/go-ethereum
 
 go 1.17
 
-replace github.com/syndtr/goleveldb => github.com/noirgif/goleveldb v1.0.2
+replace github.com/syndtr/goleveldb => github.com/noirgif/goleveldb v1.0.3
 
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v0.3.0

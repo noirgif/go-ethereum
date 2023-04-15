@@ -33,6 +33,7 @@ import (
 	"github.com/ethereum/go-ethereum/cmd/utils"
 	"github.com/ethereum/go-ethereum/eth/downloader"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/internal/ethapi"
 	"github.com/ethereum/go-ethereum/internal/flags"
 	"github.com/ethereum/go-ethereum/internal/version"
@@ -87,10 +88,11 @@ type ethstatsConfig struct {
 }
 
 type gethConfig struct {
-	Eth      ethconfig.Config
-	Node     node.Config
-	Ethstats ethstatsConfig
-	Metrics  metrics.Config
+	Eth                  ethconfig.Config
+	Node                 node.Config
+	Ethstats             ethstatsConfig
+	Metrics              metrics.Config
+	ErrorInjectionConfig ethdb.ErrorInjectionConfig
 }
 
 func loadConfig(file string, cfg *gethConfig) error {
@@ -151,6 +153,8 @@ func makeConfigNode(ctx *cli.Context) (*node.Node, gethConfig) {
 		cfg.Ethstats.URL = ctx.String(utils.EthStatsURLFlag.Name)
 	}
 	applyMetricConfig(ctx, &cfg)
+
+	utils.SetErrorInjectionConfig(ctx, &cfg.ErrorInjectionConfig)
 
 	return stack, cfg
 }

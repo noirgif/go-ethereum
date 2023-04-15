@@ -198,6 +198,12 @@ var (
 		utils.MetricsInfluxDBBucketFlag,
 		utils.MetricsInfluxDBOrganizationFlag,
 	}
+
+	errorInjectionConfigs = []cli.Flag{
+		utils.EnableInjectionFlag,
+		utils.ErrorTypeFlag,
+		utils.FailWhenFlag,
+	}
 )
 
 var app = flags.NewApp("the go-ethereum command line interface")
@@ -248,6 +254,7 @@ func init() {
 		consoleFlags,
 		debug.Flags,
 		metricsFlags,
+		errorInjectionConfigs,
 	)
 
 	app.Before = func(ctx *cli.Context) error {

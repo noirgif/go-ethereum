@@ -9,8 +9,8 @@ const (
 )
 
 type ErrorInjectionConfig struct {
-	EnableInjection bool      // Whether to enable error injection
-	ErrorType       ErrorType // The type of error to inject
-	InjectCount     uint      // Which access to inject the error
-	FailWhen        uint      // The number of accesses to inject the error
+	EnableInjection bool      `toml:",omitempty"` // Whether to enable error injection
+	ErrorType       ErrorType `toml:",omitempty"` // The type of error to inject
+	InjectCount     uint      `toml:"-"`          // Which access to inject the error
+	FailWhen        uint      `toml:",omitempty"` // The number of accesses to inject the error
 }

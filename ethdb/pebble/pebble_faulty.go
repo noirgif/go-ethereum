@@ -21,6 +21,7 @@ package pebble
 
 import (
 	"bytes"
+	"math/rand"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -249,10 +250,23 @@ func (d *FaultyDatabase) Get(key []byte) ([]byte, error) {
 	// Inject a failure if enabled
 	if d.errorInjectionConfig.EnableInjection {
 		d.errorInjectionConfig.InjectCount++
+
 		if d.errorInjectionConfig.InjectCount == d.errorInjectionConfig.FailWhen {
-			return nil, pebble.ErrNotFound
+			switch d.errorInjectionConfig.ErrorType {
+			case ethdb.ErrorRead:
+				return nil, pebble.ErrNotFound
+			case ethdb.CorruptedReadAllZero:
+				for i := 0; i < len(ret); i++ {
+					ret[i] = 0
+				}
+			case ethdb.CorruptedReadGarbage:
+				for i := 0; i < len(ret); i++ {
+					ret[i] = byte(rand.Intn(255))
+				}
+			}
 		}
 	}
+
 	return ret, nil
 }
 
